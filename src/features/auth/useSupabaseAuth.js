@@ -71,12 +71,22 @@ export function useSupabaseAuth() {
 
   const signInWithGoogle = async () => {
     if (!supabase) return { error: new Error("Supabase is not configured") };
-    return supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: configuredAuthRedirectUrl || window.location.origin,
+        skipBrowserRedirect: true,
       },
     });
+
+    if (error) return { error };
+
+    if (data?.url) {
+      window.location.assign(data.url);
+      return { error: null };
+    }
+
+    return { error: new Error("Google 로그인 URL을 생성하지 못했습니다.") };
   };
 
   const signOut = async () => {
