@@ -27,7 +27,7 @@ export function Tooltip({ text, children }) {
           borderRadius:7,
           padding:"7px 11px",
           maxWidth:220,
-          fontSize: 12,
+          fontSize: 13,
           color:"#e0ddd4",
           fontFamily:"sans-serif",
           lineHeight:1.5,
@@ -59,7 +59,7 @@ export function TipIcon({ tip }) {
         display:"inline-flex", alignItems:"center", justifyContent:"center",
         width:13, height:13, borderRadius:"50%",
         border:"1px solid #444", color:"#666",
-        fontSize: 9, fontFamily:"sans-serif", fontWeight:900,
+        fontSize: 10, fontFamily:"sans-serif", fontWeight:900,
         cursor:"help", marginLeft:3, flexShrink:0,
         userSelect:"none",
       }}>?</span>

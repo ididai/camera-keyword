@@ -40,8 +40,8 @@ function MissingEnvNotice() {
           lineHeight: 1.5,
         }}
       >
-        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>{title}</h2>
-        <p style={{ margin: "10px 0 8px", color: "#c8a9b2", fontSize: 14 }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{title}</h2>
+        <p style={{ margin: "10px 0 8px", color: "#c8a9b2", fontSize: 15 }}>
           {description}
         </p>
         <pre
@@ -52,7 +52,7 @@ function MissingEnvNotice() {
             borderRadius: 8,
             padding: 12,
             color: "#e8d7dc",
-            fontSize: 13,
+            fontSize: 14,
             overflowX: "auto",
           }}
         >
@@ -111,14 +111,14 @@ export default function App() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
-          <h1 style={{ margin: 0, fontSize: 21, fontWeight: 900, letterSpacing: "-0.04em", display: "flex", alignItems: "baseline", gap: 6 }}>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, letterSpacing: "-0.04em", display: "flex", alignItems: "baseline", gap: 6 }}>
             <span style={{ color: "#e0ddd4" }}>CAMERA</span>
             <span style={{ color: "#f19eb8" }}>KEYWORD</span>
-            <span style={{ fontSize: 13, color: "#333" }}>✦</span>
+            <span style={{ fontSize: 14, color: "#333" }}>✦</span>
           </h1>
           <span
             style={{
-              fontSize: 9,
+              fontSize: 10,
               color: "#444",
               letterSpacing: "0.2em",
               fontFamily: "sans-serif",
@@ -131,11 +131,11 @@ export default function App() {
           <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: "#f19eb8" }} />
-              <span style={{ fontSize: 10, color: "#aaa", fontFamily: "sans-serif" }}>샷</span>
+              <span style={{ fontSize: 11, color: "#aaa", fontFamily: "sans-serif" }}>샷</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: "#2563eb" }} />
-              <span style={{ fontSize: 10, color: "#aaa", fontFamily: "sans-serif" }}>높이</span>
+              <span style={{ fontSize: 11, color: "#aaa", fontFamily: "sans-serif" }}>높이</span>
             </div>
             {session ? (
               <>
@@ -146,7 +146,7 @@ export default function App() {
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
-                    fontSize: 11,
+                    fontSize: 12,
                     color: "#8d8d8d",
                     fontFamily: "sans-serif",
                   }}
@@ -157,7 +157,7 @@ export default function App() {
                   onClick={handleSignOut}
                   disabled={authLoadingAction}
                   style={{
-                    fontSize: 11,
+                    fontSize: 12,
                     background: "#222",
                     color: "#e0ddd4",
                     padding: "4px 10px",
@@ -174,7 +174,7 @@ export default function App() {
                 <button
                   onClick={() => setLangKR((prev) => !prev)}
                   style={{
-                    fontSize: 11,
+                    fontSize: 12,
                     background: langKR ? "#f19eb8" : "#222",
                     color: "#e0ddd4",
                     padding: "4px 12px",
@@ -197,7 +197,7 @@ export default function App() {
 
       {!isSupabaseConfigured ? <MissingEnvNotice /> : null}
       {isSupabaseConfigured && loading ? (
-        <div style={{ padding: 24, color: "#666", fontFamily: "sans-serif", fontSize: 13 }}>인증 상태 확인 중...</div>
+        <div style={{ padding: 24, color: "#666", fontFamily: "sans-serif", fontSize: 14 }}>인증 상태 확인 중...</div>
       ) : null}
       {isSupabaseConfigured && !loading && !session ? (
         <LoginScreen onGoogleLogin={handleGoogleLogin} loading={authLoadingAction} errorMessage={authError} />
@@ -205,7 +205,7 @@ export default function App() {
       {isSupabaseConfigured && !loading && session ? (
         <Suspense
           fallback={
-            <div style={{ padding: 24, color: "#666", fontFamily: "sans-serif", fontSize: 13 }}>
+            <div style={{ padding: 24, color: "#666", fontFamily: "sans-serif", fontSize: 14 }}>
               Loading interactive view...
             </div>
           }
