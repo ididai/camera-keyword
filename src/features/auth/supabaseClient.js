@@ -28,13 +28,14 @@ if (missingSupabaseEnvKeys.length === 0) {
       "VITE_SUPABASE_URL 형식이 잘못되었습니다. 예: https://your-project-ref.supabase.co";
   } else {
     try {
-      supabase = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-        },
-      });
+    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: "pkce",
+      },
+    });
     } catch (error) {
       supabaseConfigError = `Supabase 초기화 실패: ${error?.message ?? "알 수 없는 오류"}`;
     }
