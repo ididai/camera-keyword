@@ -19,6 +19,12 @@ function isValidHttpUrl(urlString) {
   }
 }
 
+function isValidSupabaseClientKey(value) {
+  // Supabase client keys are either legacy JWT anon keys (eyJ...)
+  // or modern publishable keys (sb_publishable_...).
+  return value.startsWith("eyJ") || value.startsWith("sb_publishable_");
+}
+
 export let supabaseConfigError = "";
 export let supabase = null;
 
@@ -26,6 +32,9 @@ if (missingSupabaseEnvKeys.length === 0) {
   if (!isValidHttpUrl(supabaseUrl)) {
     supabaseConfigError =
       "VITE_SUPABASE_URL 형식이 잘못되었습니다. 예: https://your-project-ref.supabase.co";
+  } else if (!isValidSupabaseClientKey(supabaseAnonKey)) {
+    supabaseConfigError =
+      "VITE_SUPABASE_ANON_KEY 형식이 잘못되었습니다. Supabase anon/public key를 넣어주세요.";
   } else {
     try {
     supabase = createClient(supabaseUrl, supabaseAnonKey, {
