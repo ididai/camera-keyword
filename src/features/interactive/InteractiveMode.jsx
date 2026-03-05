@@ -508,11 +508,11 @@ export default function InteractiveMode({ langKR }) {
             background: i===subjectIdx ? "#f19eb8" : "transparent",
             color: i===subjectIdx ? "#1a1a1a" : "#555",
             fontFamily:"'Arial Black','Helvetica Neue',sans-serif",
-            fontSize:10, fontWeight:900,
+            fontSize: 11, fontWeight:900,
             transition:"all 0.15s",
             letterSpacing:"-0.02em",
           }}>
-            <div style={{ fontSize:15, marginBottom:2 }}>{s.icon}</div>
+            <div style={{ fontSize: 16, marginBottom:2 }}>{s.icon}</div>
             <div>{s.kr}</div>
           </button>
         ))}
@@ -525,7 +525,7 @@ export default function InteractiveMode({ langKR }) {
         borderBottom:"1px solid #1a2a4a",
       }}>
         <span style={{
-          fontSize:9, color:"#444", fontFamily:"sans-serif",
+          fontSize: 10, color:"#444", fontFamily:"sans-serif",
           letterSpacing:"0.12em", whiteSpace:"nowrap", fontWeight:700,
         }}>SUBJECT</span>
         <div style={{ flex:1, display:"flex", flexDirection:"column", gap:5 }}>
@@ -544,7 +544,7 @@ export default function InteractiveMode({ langKR }) {
               style={{
                 flex:1, background:"#252525", border:"1px solid #2a3a6a",
                 borderRadius:8, padding:"7px 12px",
-                color:"#e0ddd4", fontSize:11, fontFamily:"monospace",
+                color:"#e0ddd4", fontSize: 12, fontFamily:"monospace",
                 outline:"none",
               }}
             />
@@ -552,7 +552,7 @@ export default function InteractiveMode({ langKR }) {
               <button onClick={() => translateSubject(subjectText)} disabled={translating} style={{
                 background: translating ? "#252525" : "#f19eb8",
                 border:"none", borderRadius:7,
-                color:"#e0ddd4", fontSize:10, fontWeight:700,
+                color:"#e0ddd4", fontSize: 11, fontWeight:700,
                 padding:"6px 12px", cursor: translating ? "default" : "pointer",
                 fontFamily:"sans-serif", whiteSpace:"nowrap", minWidth:60,
               }}>
@@ -561,7 +561,7 @@ export default function InteractiveMode({ langKR }) {
             )}
             <button onClick={() => { setSubjectText(DEFAULT_SUBJECT_PROMPTS[subject.id]); setShowTranslated(false); setTranslatedText(""); }} style={{
               background:"#252525", border:"1px solid #2a3a6a", borderRadius:6,
-              color:"#444", fontSize:10, padding:"6px 10px", cursor:"pointer",
+              color:"#444", fontSize: 11, padding:"6px 10px", cursor:"pointer",
               fontFamily:"sans-serif", whiteSpace:"nowrap",
             }}>초기화</button>
           </div>
@@ -571,18 +571,18 @@ export default function InteractiveMode({ langKR }) {
               background:"#0d2a1a", border:"1px solid #1a5a2a",
               borderRadius:6, padding:"5px 10px",
             }}>
-              <span style={{ fontSize:9, color:"#2a9a4a", fontFamily:"sans-serif", fontWeight:700, whiteSpace:"nowrap" }}>🌐 번역됨</span>
-              <span style={{ fontSize:11, color:"#88ffaa", fontFamily:"monospace", flex:1 }}>{translatedText}</span>
+              <span style={{ fontSize: 10, color:"#2a9a4a", fontFamily:"sans-serif", fontWeight:700, whiteSpace:"nowrap" }}>🌐 번역됨</span>
+              <span style={{ fontSize: 12, color:"#88ffaa", fontFamily:"monospace", flex:1 }}>{translatedText}</span>
               <button onClick={() => { setSubjectText(translatedText); setShowTranslated(false); }} style={{
                 background:"none", border:"1px solid #2a5a3a", borderRadius:4,
-                color:"#2a9a4a", fontSize:9, padding:"2px 7px", cursor:"pointer",
+                color:"#2a9a4a", fontSize: 10, padding:"2px 7px", cursor:"pointer",
                 fontFamily:"sans-serif",
               }}>적용</button>
             </div>
           )}
           {translateError ? (
             <div style={{
-              fontSize: 11,
+              fontSize: 12,
               color: "#ff9ab6",
               fontFamily: "sans-serif",
               padding: "2px 4px",
@@ -601,7 +601,7 @@ export default function InteractiveMode({ langKR }) {
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap", rowGap:3, marginBottom:3 }}>
           <span style={{
-            fontSize:8, color:"#f19eb8",
+            fontSize: 9, color:"#f19eb8",
             fontFamily:"'Arial Black',sans-serif",
             fontWeight:900, letterSpacing:"0.18em", marginRight:3,
           }}>✦ MJ PARAMS</span>
@@ -614,12 +614,12 @@ export default function InteractiveMode({ langKR }) {
                 color: isOn ? "#000" : "#888",
                 border: "1px solid " + (isOn ? "#5ce8ff" : "#333"),
                 borderRadius:3, padding:"2px 6px", cursor:"pointer",
-                fontFamily:"'Arial Black',sans-serif", fontSize:8, fontWeight:900,
+                fontFamily:"'Arial Black',sans-serif", fontSize: 9, fontWeight:900,
                 transition:"all 0.12s", whiteSpace:"nowrap",
               }}>{a.label}</button>
             );
           })}
-          <span style={{ fontSize:7, color:"#333" }}>│</span>
+          <span style={{ fontSize: 8, color:"#333" }}>│</span>
           {MJ_PARAM_GROUPS.map(g =>
             g.items.map(p => {
               const isOn = mjSelectedParams.has(p.id);
@@ -634,7 +634,7 @@ export default function InteractiveMode({ langKR }) {
                     color: isOn ? "#1a1a1a" : "#555",
                     border: "1px solid " + (isOn ? "#f19eb8" : "#2a2a2a"),
                     borderRadius:3, padding:"2px 6px", cursor:"pointer",
-                    fontFamily:"'Arial Black',sans-serif", fontSize:8, fontWeight:900,
+                    fontFamily:"'Arial Black',sans-serif", fontSize: 9, fontWeight:900,
                     transition:"all 0.12s", whiteSpace:"nowrap",
                   }}>{p.label}</button>
                 </Tooltip>
@@ -644,11 +644,11 @@ export default function InteractiveMode({ langKR }) {
           <button onClick={() => { setMjSelectedParams(new Set()); setMjArParam(null); setMjCustomParam(""); }} style={{
             background:"transparent", color:"#333", border:"1px solid #222",
             borderRadius:3, padding:"2px 6px", cursor:"pointer",
-            fontFamily:"sans-serif", fontSize:8, transition:"all 0.12s",
+            fontFamily:"sans-serif", fontSize: 9, transition:"all 0.12s",
           }}>✕ 초기화</button>
         </div>
         {mjParamStr.trim() && (
-          <div style={{ fontSize:9, color:"#f19eb8", fontFamily:"monospace", background:"#1a1a1a", padding:"2px 8px", borderRadius:4, display:"inline-block" }}>
+          <div style={{ fontSize: 10, color:"#f19eb8", fontFamily:"monospace", background:"#1a1a1a", padding:"2px 8px", borderRadius:4, display:"inline-block" }}>
             {mjParamStr.trim()}
           </div>
         )}
@@ -662,7 +662,7 @@ export default function InteractiveMode({ langKR }) {
           <div ref={mountRef} style={{ width:"100%", height:"100%", cursor:"grab" }} />
           <div style={{
             position:"absolute", top:10, left:"50%", transform:"translateX(-50%)",
-            color:"#555", fontSize:10, fontFamily:"sans-serif", letterSpacing:"0.1em",
+            color:"#555", fontSize: 11, fontFamily:"sans-serif", letterSpacing:"0.1em",
             pointerEvents:"none", whiteSpace:"nowrap",
           }}>
             드래그하여 카메라 앵글 조정
@@ -685,9 +685,9 @@ export default function InteractiveMode({ langKR }) {
                     backdropFilter:"blur(6px)", transition:"all 0.18s",
                     display:"flex", alignItems:"center", gap:3,
                   }}>
-                  <span style={{ fontSize:10 }}>{preset.icon}</span>
+                  <span style={{ fontSize: 11 }}>{preset.icon}</span>
                   <span style={{
-                    fontSize:8, fontWeight: isActive ? 800 : 500,
+                    fontSize: 9, fontWeight: isActive ? 800 : 500,
                     fontFamily:"sans-serif", letterSpacing:"0.04em",
                     color: isActive ? "#e0ddd4" : "rgba(255,255,255,0.45)",
                   }}>{preset.label}</span>
@@ -713,9 +713,9 @@ export default function InteractiveMode({ langKR }) {
                       backdropFilter:"blur(6px)", transition:"all 0.18s",
                       display:"flex", alignItems:"center", gap:3,
                     }}>
-                    <span style={{ fontSize:9 }}>📌</span>
+                    <span style={{ fontSize: 10 }}>📌</span>
                     <span style={{
-                      fontSize:8, fontWeight: isActive ? 800 : 500,
+                      fontSize: 9, fontWeight: isActive ? 800 : 500,
                       fontFamily:"sans-serif", letterSpacing:"0.04em",
                       color: isActive ? "#000" : "rgba(92,232,255,0.8)",
                     }}>{preset.label}</span>
@@ -726,7 +726,7 @@ export default function InteractiveMode({ langKR }) {
                     background:"#222", border:"1px solid #444",
                     borderRadius:"50%", width:13, height:13,
                     display:"flex", alignItems:"center", justifyContent:"center",
-                    cursor:"pointer", fontSize:7, color:"#888", lineHeight:1,
+                    cursor:"pointer", fontSize: 8, color:"#888", lineHeight:1,
                     zIndex:2,
                   }}>✕</button>
                 </div>
@@ -744,18 +744,18 @@ export default function InteractiveMode({ langKR }) {
                   autoFocus
                   style={{
                     background:"transparent", border:"none", outline:"none",
-                    color:"#5ce8ff", fontSize:9, fontFamily:"sans-serif",
+                    color:"#5ce8ff", fontSize: 10, fontFamily:"sans-serif",
                     width:80,
                   }}
                 />
                 <button onClick={() => saveCustomPreset(presetNameInput)} style={{
                   background:"#5ce8ff", border:"none", borderRadius:8,
-                  padding:"2px 7px", cursor:"pointer", fontSize:8,
+                  padding:"2px 7px", cursor:"pointer", fontSize: 9,
                   color:"#000", fontWeight:800, fontFamily:"sans-serif",
                 }}>저장</button>
                 <button onClick={() => setShowSavePreset(false)} style={{
                   background:"none", border:"none", color:"#666",
-                  cursor:"pointer", fontSize:10, padding:"0 2px",
+                  cursor:"pointer", fontSize: 11, padding:"0 2px",
                 }}>✕</button>
               </div>
             ) : (
@@ -766,8 +766,8 @@ export default function InteractiveMode({ langKR }) {
                 backdropFilter:"blur(6px)", transition:"all 0.18s",
                 display:"flex", alignItems:"center", gap:3,
               }}>
-                <span style={{ fontSize:9, color:"rgba(92,232,255,0.6)" }}>＋</span>
-                <span style={{ fontSize:8, color:"rgba(92,232,255,0.6)", fontFamily:"sans-serif" }}>저장</span>
+                <span style={{ fontSize: 10, color:"rgba(92,232,255,0.6)" }}>＋</span>
+                <span style={{ fontSize: 9, color:"rgba(92,232,255,0.6)", fontFamily:"sans-serif" }}>저장</span>
               </button>
             )}
           </div>
@@ -793,12 +793,12 @@ export default function InteractiveMode({ langKR }) {
                   transition:"all 0.15s",
                 }}>
                   <span style={{
-                    fontSize:9, fontWeight:800, fontFamily:"sans-serif",
+                    fontSize: 10, fontWeight:800, fontFamily:"sans-serif",
                     letterSpacing:"0.1em",
                     color: isOn ? "#1a1a1a" : "rgba(255,255,255,0.5)",
                   }}>{chip.label}</span>
                   <span style={{
-                    fontSize:8, fontFamily:"sans-serif",
+                    fontSize: 9, fontFamily:"sans-serif",
                     color: isOn ? "#333" : "rgba(255,255,255,0.3)",
                   }}>{chip.kr}</span>
                 </button>
@@ -834,7 +834,7 @@ export default function InteractiveMode({ langKR }) {
             position:"absolute", right:12, top:"50%", transform:"translateY(-50%)",
             display:"flex", flexDirection:"column", alignItems:"center", gap:6,
           }}>
-            <span style={{ fontSize:7, color:"#f19eb8", fontFamily:"sans-serif", letterSpacing:"0.04em", fontWeight:700, textAlign:"center", lineHeight:1.3 }}>멀리</span>
+            <span style={{ fontSize: 8, color:"#f19eb8", fontFamily:"sans-serif", letterSpacing:"0.04em", fontWeight:700, textAlign:"center", lineHeight:1.3 }}>멀리</span>
             <input type="range" min="0" max="100" value={Math.round((1-r)*100)}
               onChange={e => setR(1 - e.target.value/100)}
               style={{
@@ -842,7 +842,7 @@ export default function InteractiveMode({ langKR }) {
                 width:20, height:120, cursor:"pointer", accentColor:"#f19eb8",
               }}
             />
-            <span style={{ fontSize:7, color:"#f19eb8", fontFamily:"sans-serif", textAlign:"center", lineHeight:1.2 }}>{Math.round(r*100)}%<br/><span style={{fontSize:6}}>가까이</span></span>
+            <span style={{ fontSize: 8, color:"#f19eb8", fontFamily:"sans-serif", textAlign:"center", lineHeight:1.2 }}>{Math.round(r*100)}%<br/><span style={{fontSize: 7}}>가까이</span></span>
           </div>
         </div>
 
@@ -867,7 +867,7 @@ export default function InteractiveMode({ langKR }) {
                   color: kwPanelTab===t.id ? "#111" : "#555",
                   border: "1px solid " + (kwPanelTab===t.id ? "#f19eb8" : "#222"),
                   borderRadius:4, padding:"2px 6px", cursor:"pointer",
-                  fontFamily:"sans-serif", fontSize:9, fontWeight: kwPanelTab===t.id ? 700 : 400,
+                  fontFamily:"sans-serif", fontSize: 10, fontWeight: kwPanelTab===t.id ? 700 : 400,
                   transition:"all 0.12s",
                 }}>{t.label}</button>
               </Tooltip>
@@ -878,14 +878,14 @@ export default function InteractiveMode({ langKR }) {
             {/* 샷 탭: 기존 3개 카드 */}
             {kwPanelTab === "shot" && (<>
               <div style={{ background:"#0d1a2e", borderRadius:7, padding:"8px", marginBottom:6 }}>
-                <div style={{ fontSize:7, color:"#2563eb", fontFamily:"sans-serif", letterSpacing:"0.1em", marginBottom:3 }}>HEIGHT · φ{Math.round(phi)}°</div>
-                <div style={{ fontSize:11, color:"#e0ddd4", fontFamily:"sans-serif", fontWeight:700, lineHeight:1.3 }}>
+                <div style={{ fontSize: 8, color:"#2563eb", fontFamily:"sans-serif", letterSpacing:"0.1em", marginBottom:3 }}>HEIGHT · φ{Math.round(phi)}°</div>
+                <div style={{ fontSize: 12, color:"#e0ddd4", fontFamily:"sans-serif", fontWeight:700, lineHeight:1.3 }}>
                   {langKR ? resolved.height.kr : resolved.height.en}
                 </div>
               </div>
               <div style={{ background:"#0d1a2e", borderRadius:7, padding:"8px", marginBottom:6 }}>
-                <div style={{ fontSize:7, color:"#10b981", fontFamily:"sans-serif", letterSpacing:"0.1em", marginBottom:3 }}>DIRECTION · θ{Math.round(theta)}°</div>
-                <div style={{ fontSize:11, color:"#e0ddd4", fontFamily:"sans-serif", fontWeight:700, lineHeight:1.3 }}>
+                <div style={{ fontSize: 8, color:"#10b981", fontFamily:"sans-serif", letterSpacing:"0.1em", marginBottom:3 }}>DIRECTION · θ{Math.round(theta)}°</div>
+                <div style={{ fontSize: 12, color:"#e0ddd4", fontFamily:"sans-serif", fontWeight:700, lineHeight:1.3 }}>
                   {langKR ? resolved.direction.kr : resolved.direction.en}
                 </div>
               </div>
@@ -906,17 +906,17 @@ export default function InteractiveMode({ langKR }) {
                 }
                 return (
                   <div style={{ background:"#0d2a1a", borderRadius:7, padding:"8px", marginBottom:6, border:"1px solid #1a4a2a" }}>
-                    <div style={{ fontSize:7, color:"#34d399", fontFamily:"sans-serif", letterSpacing:"0.1em", marginBottom:3 }}>GAZE · 시선방향</div>
-                    <div style={{ fontSize:11, color:"#e0ddd4", fontFamily:"sans-serif", fontWeight:700, display:"flex", alignItems:"center", gap:5 }}>
-                      <span style={{ fontSize:14 }}>{gazeIcon}</span>
+                    <div style={{ fontSize: 8, color:"#34d399", fontFamily:"sans-serif", letterSpacing:"0.1em", marginBottom:3 }}>GAZE · 시선방향</div>
+                    <div style={{ fontSize: 12, color:"#e0ddd4", fontFamily:"sans-serif", fontWeight:700, display:"flex", alignItems:"center", gap:5 }}>
+                      <span style={{ fontSize: 15 }}>{gazeIcon}</span>
                       {gazeLabel}
                     </div>
                   </div>
                 );
               })()}
               <div style={{ background:"#0d1a2e", borderRadius:7, padding:"8px" }}>
-                <div style={{ fontSize:7, color:"#f19eb8", fontFamily:"sans-serif", letterSpacing:"0.1em", marginBottom:3 }}>SHOT · {Math.round(r*100)}%</div>
-                <div style={{ fontSize:11, color:"#e0ddd4", fontFamily:"sans-serif", fontWeight:700, lineHeight:1.3 }}>
+                <div style={{ fontSize: 8, color:"#f19eb8", fontFamily:"sans-serif", letterSpacing:"0.1em", marginBottom:3 }}>SHOT · {Math.round(r*100)}%</div>
+                <div style={{ fontSize: 12, color:"#e0ddd4", fontFamily:"sans-serif", fontWeight:700, lineHeight:1.3 }}>
                   {langKR ? resolved.shot.kr : resolved.shot.en}
                 </div>
               </div>
@@ -936,7 +936,7 @@ export default function InteractiveMode({ langKR }) {
                       textAlign:"left", transition:"all 0.12s",
                       display:"flex", alignItems:"center", gap:4,
                     }}>
-                      <span style={{ fontSize:10, color: isOn ? "#111" : "#e0ddd4", fontWeight:700, fontFamily:"sans-serif", flex:1 }}>{label}</span>
+                      <span style={{ fontSize: 11, color: isOn ? "#111" : "#e0ddd4", fontWeight:700, fontFamily:"sans-serif", flex:1 }}>{label}</span>
                       <TipIcon tip={item.desc} />
                     </button>
                   );
@@ -958,7 +958,7 @@ export default function InteractiveMode({ langKR }) {
                       textAlign:"left", transition:"all 0.12s",
                       display:"flex", alignItems:"center", gap:4,
                     }}>
-                      <span style={{ fontSize:10, color: isOn ? "#111" : "#e0ddd4", fontWeight:700, fontFamily:"sans-serif", flex:1 }}>{label}</span>
+                      <span style={{ fontSize: 11, color: isOn ? "#111" : "#e0ddd4", fontWeight:700, fontFamily:"sans-serif", flex:1 }}>{label}</span>
                       <TipIcon tip={item.desc} />
                     </button>
                   );
@@ -980,7 +980,7 @@ export default function InteractiveMode({ langKR }) {
                       textAlign:"left", transition:"all 0.12s",
                       display:"flex", alignItems:"center", gap:4,
                     }}>
-                      <span style={{ fontSize:10, color: isOn ? "#111" : "#e0ddd4", fontWeight:700, fontFamily:"sans-serif", flex:1 }}>{label}</span>
+                      <span style={{ fontSize: 11, color: isOn ? "#111" : "#e0ddd4", fontWeight:700, fontFamily:"sans-serif", flex:1 }}>{label}</span>
                       <TipIcon tip={item.desc} />
                     </button>
                   );
@@ -1002,7 +1002,7 @@ export default function InteractiveMode({ langKR }) {
                       textAlign:"left", transition:"all 0.12s",
                       display:"flex", alignItems:"center", gap:4,
                     }}>
-                      <span style={{ fontSize:10, color: isOn ? "#111" : "#e0ddd4", fontWeight:700, fontFamily:"sans-serif", flex:1 }}>{label}</span>
+                      <span style={{ fontSize: 11, color: isOn ? "#111" : "#e0ddd4", fontWeight:700, fontFamily:"sans-serif", flex:1 }}>{label}</span>
                       <TipIcon tip={item.desc} />
                     </button>
                   );
@@ -1024,7 +1024,7 @@ export default function InteractiveMode({ langKR }) {
                       textAlign:"left", transition:"all 0.12s",
                       display:"flex", alignItems:"center", gap:4,
                     }}>
-                      <span style={{ fontSize:10, color: isOn ? "#111" : "#e0ddd4", fontWeight:700, fontFamily:"sans-serif", flex:1 }}>{label}</span>
+                      <span style={{ fontSize: 11, color: isOn ? "#111" : "#e0ddd4", fontWeight:700, fontFamily:"sans-serif", flex:1 }}>{label}</span>
                       <TipIcon tip={item.desc} />
                     </button>
                   );
@@ -1054,7 +1054,7 @@ export default function InteractiveMode({ langKR }) {
               color: drawerOpen===tab.id ? "#e0ddd4" : "#444",
               padding:"10px 18px", cursor:"pointer",
               fontWeight:900,
-              fontFamily:"sans-serif", fontSize:10,
+              fontFamily:"sans-serif", fontSize: 11,
               letterSpacing:"0.1em", display:"flex", alignItems:"center", gap:5,
               transition:"all 0.15s",
             }}>
@@ -1062,7 +1062,7 @@ export default function InteractiveMode({ langKR }) {
               {tab.count > 0 && (
                 <span style={{
                   background:"#f19eb8", color:"#e0ddd4", borderRadius:10,
-                  fontSize:9, padding:"1px 6px", fontWeight:800,
+                  fontSize: 10, padding:"1px 6px", fontWeight:800,
                 }}>{tab.count}</span>
               )}
             </button>
@@ -1071,14 +1071,14 @@ export default function InteractiveMode({ langKR }) {
           {(selectedMoods.length > 0 || selectedStyles.length > 0) && (
             <button onClick={() => { setSelectedMoods([]); setSelectedStyles([]); }} style={{
               background:"none", border:"none", color:"#444",
-              fontSize:9, cursor:"pointer", fontFamily:"sans-serif", padding:"8px",
+              fontSize: 10, cursor:"pointer", fontFamily:"sans-serif", padding:"8px",
             }}>전체 초기화</button>
           )}
           {/* ✕ 닫기 버튼 */}
           {drawerOpen && (
             <button onClick={() => setDrawerOpen(null)} style={{
               marginLeft:"auto", background:"none", border:"none",
-              color:"#556", fontSize:15, cursor:"pointer",
+              color:"#556", fontSize: 16, cursor:"pointer",
               padding:"6px 12px", lineHeight:1,
               transition:"color 0.15s",
             }}
@@ -1099,7 +1099,7 @@ export default function InteractiveMode({ langKR }) {
                 <div key={group.id} style={{ marginBottom:10 }}>
                   {/* 그룹 라벨 */}
                   <div style={{
-                    fontSize:8, fontWeight:800, color:"#f19eb8", letterSpacing:"0.12em",
+                    fontSize: 9, fontWeight:800, color:"#f19eb8", letterSpacing:"0.12em",
                     fontFamily:"sans-serif", marginBottom:6,
                   }}>{group.en} · {group.label}</div>
                   {/* 태그들 */}
@@ -1126,13 +1126,13 @@ export default function InteractiveMode({ langKR }) {
                           border: `1px solid ${locked ? "#181828" : isOn ? activeColor : "#2a2a2a"}`,
                           borderRadius:16, padding:"4px 11px", cursor: locked ? "default" : "pointer",
                           color: locked ? "#252535" : isOn ? "#e0ddd4" : "#888",
-                          fontFamily:"sans-serif", fontSize:11, fontWeight: isOn ? 700 : 400,
+                          fontFamily:"sans-serif", fontSize: 12, fontWeight: isOn ? 700 : 400,
                           transition:"all 0.15s", opacity: locked ? 0.6 : 1,
                           display:"flex", alignItems:"center", gap:4,
                         }}>
-                          {locked && <span style={{fontSize:8}}>🔒</span>}
+                          {locked && <span style={{fontSize: 9}}>🔒</span>}
                           <span>{langKR ? tag.kr : tag.en}</span>
-                          {!langKR && <span style={{ fontSize:7, color: isOn ? "#4a4a4a" : "rgba(200,200,200,0.28)", marginLeft:2, fontWeight:400 }}>{tag.kr}</span>}
+                          {!langKR && <span style={{ fontSize: 8, color: isOn ? "#4a4a4a" : "rgba(200,200,200,0.28)", marginLeft:2, fontWeight:400 }}>{tag.kr}</span>}
                         </button>
                       );
                     })}
@@ -1152,7 +1152,7 @@ export default function InteractiveMode({ langKR }) {
       }}>
         {/* PROMPT 라벨 + 언어 토글 */}
         <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"flex-start", flexShrink:0, paddingTop:2 }}>
-          <span style={{ fontSize:8, color:"#f19eb8", fontFamily:"'Arial Black',sans-serif", letterSpacing:"0.2em", fontWeight:900 }}>PROMPT</span>
+          <span style={{ fontSize: 9, color:"#f19eb8", fontFamily:"'Arial Black',sans-serif", letterSpacing:"0.2em", fontWeight:900 }}>PROMPT</span>
           <div style={{ display:"flex", gap:2 }}>
             {[["kr","KR"],["en","EN"]].map(([val, label]) => {
               const isActive = promptLang === val || (promptLang === null && (val === "kr") === langKR);
@@ -1162,7 +1162,7 @@ export default function InteractiveMode({ langKR }) {
                   color: isActive ? "#111" : "#444",
                   border: "1px solid " + (isActive ? "#f19eb8" : "#333"),
                   borderRadius:3, padding:"1px 5px", cursor:"pointer",
-                  fontSize:8, fontWeight:900, fontFamily:"'Arial Black',sans-serif",
+                  fontSize: 9, fontWeight:900, fontFamily:"'Arial Black',sans-serif",
                   transition:"all 0.12s",
                 }}>{label}</button>
               );
@@ -1170,14 +1170,14 @@ export default function InteractiveMode({ langKR }) {
           </div>
         </div>
         <div style={{
-          flex:1, minWidth:200, fontSize:11, color:"#e0ddd4", fontFamily:"monospace",
+          flex:1, minWidth:200, fontSize: 12, color:"#e0ddd4", fontFamily:"monospace",
           whiteSpace:"pre-wrap", wordBreak:"break-all", lineHeight:1.6,
         }}>{displayPrompt}</div>
         <button onClick={copyPrompt} style={{
           background:"#f19eb8", color:"#1a1a1a", border:"none",
           borderRadius:0, padding:"10px 20px", cursor:"pointer",
           fontFamily:"'Arial Black','Helvetica Neue',sans-serif",
-          fontSize:11, fontWeight:900, whiteSpace:"nowrap",
+          fontSize: 12, fontWeight:900, whiteSpace:"nowrap",
           letterSpacing:"0.05em", textTransform:"uppercase", alignSelf:"flex-start",
         }}>{copied ? "✓ 복사됨" : "복사 COPY"}</button>
 
@@ -1194,7 +1194,7 @@ export default function InteractiveMode({ langKR }) {
           background: showBookmarks ? "#f19eb8" : "#252525",
           border:"1px solid #2a3a6a", borderRadius:8,
           color: showBookmarks ? "#1a1a1a" : "#666",
-          fontSize:11, fontWeight:700, padding:"7px 11px",
+          fontSize: 12, fontWeight:700, padding:"7px 11px",
           cursor:"pointer", fontFamily:"sans-serif",
           whiteSpace:"nowrap", position:"relative",
         }}>
@@ -1203,7 +1203,7 @@ export default function InteractiveMode({ langKR }) {
             <span style={{
               position:"absolute", top:-5, right:-5,
               background:"#f19eb8", color:"#e0ddd4", borderRadius:8,
-              fontSize:8, padding:"1px 4px", fontWeight:800,
+              fontSize: 9, padding:"1px 4px", fontWeight:800,
             }}>{bookmarks.length}</span>
           )}
         </button>
@@ -1221,19 +1221,19 @@ export default function InteractiveMode({ langKR }) {
             padding:"7px 14px", borderBottom:"1px solid #1a2a4a", position:"sticky", top:0,
             background:"#1a1a1a",
           }}>
-            <span style={{ fontSize:9, color:"#f19eb8", fontFamily:"sans-serif", fontWeight:800, letterSpacing:"0.1em" }}>
+            <span style={{ fontSize: 10, color:"#f19eb8", fontFamily:"sans-serif", fontWeight:800, letterSpacing:"0.1em" }}>
               ⭐ BOOKMARKS · {bookmarks.length}개
             </span>
             {bookmarks.length > 0 && (
               <button onClick={clearAllBookmarks} style={{
-                background:"none", border:"none", color:"#444", fontSize:9,
+                background:"none", border:"none", color:"#444", fontSize: 10,
                 cursor:"pointer", fontFamily:"sans-serif",
               }}>전체삭제</button>
             )}
           </div>
 
           {bookmarks.length === 0 ? (
-            <div style={{ padding:"18px", textAlign:"center", color:"#444", fontSize:11, fontFamily:"sans-serif" }}>
+            <div style={{ padding:"18px", textAlign:"center", color:"#444", fontSize: 12, fontFamily:"sans-serif" }}>
               ⭐ 눌러서 현재 프롬프트 저장
             </div>
           ) : bookmarks.map(bm => (
@@ -1250,20 +1250,20 @@ export default function InteractiveMode({ langKR }) {
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:"flex", gap:5, marginBottom:3, alignItems:"center" }}>
                   <span style={{
-                    fontSize:8, color:"#f19eb8", fontFamily:"sans-serif", fontWeight:700,
+                    fontSize: 9, color:"#f19eb8", fontFamily:"sans-serif", fontWeight:700,
                     background:"rgba(241,158,184,0.15)", padding:"1px 6px", borderRadius:6,
                   }}>{bm.subject}</span>
-                  <span style={{ fontSize:8, color:"#444", fontFamily:"sans-serif" }}>{bm.ts}</span>
-                  <span style={{ fontSize:8, color:"#444", fontFamily:"sans-serif", marginLeft:"auto" }}>클릭시 복사</span>
+                  <span style={{ fontSize: 9, color:"#444", fontFamily:"sans-serif" }}>{bm.ts}</span>
+                  <span style={{ fontSize: 9, color:"#444", fontFamily:"sans-serif", marginLeft:"auto" }}>클릭시 복사</span>
                 </div>
                 <div style={{
-                  fontSize:10, color:"#777", fontFamily:"monospace", lineHeight:1.5,
+                  fontSize: 11, color:"#777", fontFamily:"monospace", lineHeight:1.5,
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
                 }}>{bm.prompt}</div>
               </div>
               <button onClick={e => { e.stopPropagation(); deleteBookmark(bm.id); }} style={{
                 background:"none", border:"none", color:"#444",
-                fontSize:13, cursor:"pointer", flexShrink:0, padding:"0 2px",
+                fontSize: 14, cursor:"pointer", flexShrink:0, padding:"0 2px",
               }}>✕</button>
             </div>
           ))}

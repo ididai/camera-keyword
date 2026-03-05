@@ -22,7 +22,7 @@ export default function LoginScreen({ onGoogleLogin, loading, errorMessage }) {
         <h2
           style={{
             margin: 0,
-            fontSize: 22,
+            fontSize: 23,
             fontWeight: 900,
             letterSpacing: "-0.02em",
             color: "#f2f2f2",
@@ -34,7 +34,7 @@ export default function LoginScreen({ onGoogleLogin, loading, errorMessage }) {
           style={{
             margin: "10px 0 18px",
             color: "#a3a3a3",
-            fontSize: 13,
+            fontSize: 14,
             lineHeight: 1.5,
             fontFamily: "sans-serif",
           }}
@@ -54,7 +54,7 @@ export default function LoginScreen({ onGoogleLogin, loading, errorMessage }) {
             background: loading ? "#1e1e1e" : "#ffffff",
             color: loading ? "#777" : "#111",
             fontWeight: 800,
-            fontSize: 14,
+            fontSize: 15,
             cursor: loading ? "default" : "pointer",
             transition: "all 0.15s",
           }}
@@ -67,7 +67,7 @@ export default function LoginScreen({ onGoogleLogin, loading, errorMessage }) {
             style={{
               marginTop: 12,
               color: "#f19eb8",
-              fontSize: 12,
+              fontSize: 13,
               fontFamily: "sans-serif",
               lineHeight: 1.4,
             }}
