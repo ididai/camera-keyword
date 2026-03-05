@@ -140,6 +140,7 @@ export default function InteractiveMode({ langKR }) {
   const [translating, setTranslating] = useState(false);
   const [translatedText, setTranslatedText] = useState(""); // 번역된 영문 (프롬프트에 실제 사용)
   const [showTranslated, setShowTranslated] = useState(false);
+  const [translateError, setTranslateError] = useState("");
 
   // 한글 포함 여부 체크
   const hasKorean = (str) => /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(str);
@@ -150,9 +151,11 @@ export default function InteractiveMode({ langKR }) {
     if (!hasKorean(text)) {
       setTranslatedText(text);
       setShowTranslated(false);
+      setTranslateError("");
       return;
     }
     setTranslating(true);
+    setTranslateError("");
     try {
       const res = await fetch("/api/translate", {
         method: "POST",
@@ -172,10 +175,12 @@ export default function InteractiveMode({ langKR }) {
       setPromptLang("en");
       // 사용자 요구사항: 번역 성공 후 SUBJECT 입력칸 비우기
       setSubjectText("");
+      setTranslateError("");
     } catch(e) {
       console.error("translateSubject error:", e);
       setTranslatedText(text);
       setShowTranslated(false);
+      setTranslateError(e?.message || "번역 실패");
     }
     setTranslating(false);
   };
@@ -532,6 +537,7 @@ export default function InteractiveMode({ langKR }) {
                 setSubjectText(e.target.value);
                 setShowTranslated(false);
                 setTranslatedText("");
+                setTranslateError("");
               }}
               onKeyDown={e => { if(e.key === "Enter") translateSubject(subjectText); }}
               placeholder={DEFAULT_SUBJECT_PROMPTS[subject.id]}
@@ -574,6 +580,16 @@ export default function InteractiveMode({ langKR }) {
               }}>적용</button>
             </div>
           )}
+          {translateError ? (
+            <div style={{
+              fontSize: 11,
+              color: "#ff9ab6",
+              fontFamily: "sans-serif",
+              padding: "2px 4px",
+            }}>
+              번역 오류: {translateError}
+            </div>
+          ) : null}
         </div>
       </div>
 
