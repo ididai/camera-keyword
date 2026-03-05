@@ -20,9 +20,9 @@ function readBody(req) {
   })
 }
 
-function googleTranslateDevApi(apiKeyFromEnv) {
+function geminiTranslateDevApi(apiKeyFromEnv) {
   return {
-    name: 'google-translate-dev-api',
+    name: 'gemini-translate-dev-api',
     configureServer(server) {
       server.middlewares.use('/api/translate', async (req, res) => {
         if (req.method !== 'POST') {
@@ -30,9 +30,10 @@ function googleTranslateDevApi(apiKeyFromEnv) {
           return json(res, 405, { error: 'Method not allowed' })
         }
 
-        const apiKey = apiKeyFromEnv || process.env.GOOGLE_TRANSLATE_KEY
+        const apiKey =
+          apiKeyFromEnv || process.env.GEMINI_API_KEY || process.env.GOOGLE_TRANSLATE_KEY
         if (!apiKey) {
-          return json(res, 500, { error: 'Missing GOOGLE_TRANSLATE_KEY' })
+          return json(res, 500, { error: 'Missing GEMINI_API_KEY' })
         }
 
         try {
@@ -41,27 +42,47 @@ function googleTranslateDevApi(apiKeyFromEnv) {
           const text = typeof parsed?.text === 'string' ? parsed.text.trim() : ''
           if (!text) return json(res, 400, { error: 'text is required' })
 
-          const googleRes = await fetch(
-            `https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(apiKey)}`,
+          const geminiRes = await fetch(
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
             {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': apiKey,
+              },
               body: JSON.stringify({
-                q: text,
-                source: 'ko',
-                target: 'en',
-                format: 'text',
+                contents: [
+                  {
+                    role: 'user',
+                    parts: [
+                      {
+                        text:
+                          'Translate Korean text to natural English for an image prompt. ' +
+                          'Return only translated English text without quotes.\n\n' +
+                          `Input: ${text}`,
+                      },
+                    ],
+                  },
+                ],
+                generationConfig: {
+                  temperature: 0.1,
+                  maxOutputTokens: 256,
+                },
               }),
             },
           )
 
-          const data = await googleRes.json()
-          if (!googleRes.ok) {
-            const message = data?.error?.message || 'Google Translate API request failed'
-            return json(res, googleRes.status, { error: message })
+          const data = await geminiRes.json()
+          if (!geminiRes.ok) {
+            const message = data?.error?.message || 'Gemini API request failed'
+            return json(res, geminiRes.status, { error: message })
           }
 
-          const translatedText = data?.data?.translations?.[0]?.translatedText?.trim()
+          const translatedText = data?.candidates?.[0]?.content?.parts
+            ?.map((part) => part?.text || '')
+            .join(' ')
+            .trim()
+
           if (!translatedText) return json(res, 502, { error: 'No translation returned' })
 
           return json(res, 200, { translatedText })
@@ -75,10 +96,11 @@ function googleTranslateDevApi(apiKeyFromEnv) {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const googleTranslateKey = env.GOOGLE_TRANSLATE_KEY || process.env.GOOGLE_TRANSLATE_KEY
+  const geminiApiKey =
+    env.GEMINI_API_KEY || env.GOOGLE_TRANSLATE_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_TRANSLATE_KEY
 
   return {
-    plugins: [react(), googleTranslateDevApi(googleTranslateKey)],
+    plugins: [react(), geminiTranslateDevApi(geminiApiKey)],
     build: {
       outDir: 'dist',
       assetsDir: 'assets',

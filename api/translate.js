@@ -4,9 +4,9 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const apiKey = process.env.GOOGLE_TRANSLATE_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_TRANSLATE_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: "Missing GOOGLE_TRANSLATE_KEY" });
+    return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
   }
 
   let body = req.body;
@@ -24,27 +24,47 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const googleRes = await fetch(
-      `https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(apiKey)}`,
+    const geminiRes = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
         body: JSON.stringify({
-          q: text,
-          source: "ko",
-          target: "en",
-          format: "text",
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text:
+                    "Translate Korean text to natural English for an image prompt. " +
+                    "Return only translated English text without quotes.\n\n" +
+                    `Input: ${text}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 256,
+          },
         }),
       },
     );
 
-    const data = await googleRes.json();
-    if (!googleRes.ok) {
-      const message = data?.error?.message || "Google Translate API request failed";
-      return res.status(googleRes.status).json({ error: message });
+    const data = await geminiRes.json();
+    if (!geminiRes.ok) {
+      const message = data?.error?.message || "Gemini API request failed";
+      return res.status(geminiRes.status).json({ error: message });
     }
 
-    const translatedText = data?.data?.translations?.[0]?.translatedText?.trim();
+    const translatedText = data?.candidates?.[0]?.content?.parts
+      ?.map((part) => part?.text || "")
+      .join(" ")
+      .trim();
+
     if (!translatedText) {
       return res.status(502).json({ error: "No translation returned" });
     }
