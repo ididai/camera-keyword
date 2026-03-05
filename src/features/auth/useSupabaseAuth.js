@@ -15,7 +15,38 @@ export function useSupabaseAuth() {
 
     let mounted = true;
 
+    const processOAuthCallback = async () => {
+      const url = new URL(window.location.href);
+      const hash = window.location.hash.startsWith("#")
+        ? window.location.hash.slice(1)
+        : window.location.hash;
+      const hashParams = new URLSearchParams(hash);
+
+      const hashAccessToken = hashParams.get("access_token");
+      const hashRefreshToken = hashParams.get("refresh_token");
+      const code = url.searchParams.get("code");
+
+      if (hashAccessToken && hashRefreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: hashAccessToken,
+          refresh_token: hashRefreshToken,
+        });
+        if (error) {
+          console.error("Failed to set session from OAuth hash:", error.message);
+        }
+        window.history.replaceState({}, document.title, url.pathname + url.search);
+      } else if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.error("Failed to exchange OAuth code:", error.message);
+        }
+        url.searchParams.delete("code");
+        window.history.replaceState({}, document.title, `${url.pathname}${url.search}`);
+      }
+    };
+
     const loadSession = async () => {
+      await processOAuthCallback();
       const { data, error } = await supabase.auth.getSession();
       if (error) {
         console.error("Failed to get session:", error.message);
