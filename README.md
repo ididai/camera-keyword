@@ -10,6 +10,7 @@ cp .env.example .env.local
 # .env.local에 아래 키 입력
 # - VITE_SUPABASE_URL
 # - VITE_SUPABASE_ANON_KEY
+# - VITE_AUTH_REDIRECT_URL (운영 도메인 권장, 예: https://icecam.icedong.com)
 # - GOOGLE_TRANSLATE_KEY
 npm run dev
 ```

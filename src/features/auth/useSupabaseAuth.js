@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { isSupabaseConfigured, supabase } from "./supabaseClient";
 
+const configuredAuthRedirectUrl = (import.meta.env.VITE_AUTH_REDIRECT_URL ?? "").trim();
+
 export function useSupabaseAuth() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +43,7 @@ export function useSupabaseAuth() {
     return supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: configuredAuthRedirectUrl || window.location.origin,
       },
     });
   };
