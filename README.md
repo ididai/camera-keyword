@@ -6,6 +6,11 @@ AI 이미지/영상 생성을 위한 카메라 키워드 프롬프트 생성기
 
 ```bash
 npm install
+cp .env.example .env.local
+# .env.local에 아래 키 입력
+# - VITE_SUPABASE_URL
+# - VITE_SUPABASE_ANON_KEY
+# - GOOGLE_TRANSLATE_KEY
 npm run dev
 ```
 

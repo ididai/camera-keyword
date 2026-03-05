@@ -1,0 +1,548 @@
+// Feature constants for camera keyword generation
+
+export const DATA = {
+  shot: [
+    { id: "ecl", kr: "익스트림 클로즈업 — 눈/입 단독", en: "extreme close-up shot, single facial feature isolated, macro framing, tight crop on eyes or lips, intimate detail emphasis", desc: "눈·코·입 단독 부위", clipPct: 92 },
+    { id: "cl",  kr: "클로즈업 — 얼굴+목",          en: "close-up shot, face framing",                desc: "얼굴 전체, 목 위까지",                clipPct: 84 },
+    { id: "mcl", kr: "미디엄 클로즈업 — 가슴 위",   en: "medium close-up shot, chest-up framing, bust portrait, upper torso visible, from chest to crown of head",     desc: "가슴 위 상반신",                      clipPct: 72 },
+    { id: "ms",  kr: "미디엄 샷 — 허리 위",         en: "medium shot, waist-up framing, half-body composition, natural conversational distance, from waist to top of head",              desc: "허리 위 상반신",                      clipPct: 58 },
+    { id: "cs",  kr: "카우보이 샷 — 허벅지 위",       en: "cowboy shot, thigh-up framing, western three-quarter shot, mid-thigh to crown, action-ready composition",              desc: "허벅지 중간까지 (웨스턴식)",          clipPct: 46 },
+    { id: "mfs", kr: "미디엄 풀 샷",      en: "medium full shot, knee-up framing, three-quarter body portrait, full figure with generous headroom, knees to crown",          desc: "무릎 위까지",                         clipPct: 32 },
+    { id: "fs",  kr: "풀 바디 샷 — 전신",        en: "full body shot, head-to-toe framing, full-length portrait, entire figure visible, both feet and crown in frame",        desc: "머리끝~발끝 전신",                    clipPct: 0  },
+    { id: "ws",  kr: "와이드 샷 — 인물+배경",         en: "wide shot, subject placed within environment, figure and surroundings equally visible, 35mm wide framing, environmental context",        desc: "인물+배경 환경 포함",                 clipPct: 0  },
+    { id: "ews", framing: true, kr: "익스트림 와이드",  en: "extreme wide shot, vast environment",     desc: "광활한 배경, 인물 작게"      },
+    { id: "est", framing: true, kr: "이스태블리싱 샷",  en: "establishing shot, location context",     desc: "장소·공간 맥락 소개"          },
+    { id: "ots", framing: true, kr: "오버 더 숄더",     en: "over-the-shoulder shot",                  desc: "한 인물 어깨 너머 시점"       },
+    { id: "pov", framing: true, kr: "POV 샷",           en: "POV shot, first-person perspective",      desc: "인물 시점 1인칭 시선"         },
+    { id: "two", framing: true, kr: "투 샷",            en: "two shot, two subjects in frame",         desc: "두 인물을 하나의 프레임에"    },
+    { id: "ins", framing: true, kr: "인서트 샷",        en: "insert shot, detail cutaway",             desc: "디테일 강조 삽입 컷"          },
+  ],
+  height: [
+    { id: "bev", kr: "버즈아이 뷰 — 수직 탑다운",     en: "bird's-eye view, directly overhead camera angle, 90-degree top-down perspective, aerial straight-down composition, god's eye viewpoint",                         desc: "완전 수직 하향, 탑뷰",    camPct: 98 },
+    { id: "ha",  kr: "하이 앵글 — 위에서 내려봄",       en: "high angle shot, camera positioned above subject looking down, elevated perspective, diminishing subject scale, overhead diagonal view",                         desc: "위에서 비스듬히 내려다봄",camPct: 82 },
+    { id: "sla", kr: "슬라이틀리 하이 — 눈높이 살짝 위", en: "slightly high angle, camera marginally above subject eye line, subtle downward tilt, gentle overhead perspective, flattering portrait angle",                   desc: "눈높이보다 약간 위",      camPct: 72 },
+    { id: "el",  kr: "아이 레벨 — 자연스러운 눈높이",       en: "camera at eye height, straight-on horizontal angle, neutral perspective, 50mm equivalent eye-level framing, natural human viewpoint",                          desc: "자연스러운 인간 시선",    camPct: 60 },
+    { id: "hl",  kr: "힙 레벨 — 허리 높이",         en: "hip level shot, camera positioned at hip height, low-mid angle, slightly upward tilt, dynamic street photography perspective",                                 desc: "허리 높이, 역동적",       camPct: 46 },
+    { id: "kl",  kr: "니 레벨 — 무릎 높이",         en: "knee level shot, camera at knee height, low angle upward perspective, powerful subject presence, heroic framing from below",                                   desc: "무릎 높이, 강인한 인상",  camPct: 30 },
+    { id: "gl",  kr: "그라운드 레벨",   en: "ground level shot, camera flush with floor, extreme low angle, dramatic upward perspective, gritty urban or intimate ground-up view",                          desc: "바닥 밀착 시점",          camPct: 14 },
+    { id: "we",  kr: "웜스아이 뷰 — 바닥서 올려봄",     en: "worm's-eye view, extreme upward camera angle, camera below subject looking straight up, maximum distortion perspective, towering subject scale",               desc: "완전 수직 상향",          camPct: 3  },
+  ],
+  direction: [
+    { id: "fr",  kr: "정면",          en: "front view, directly facing camera, symmetrical frontal composition, subject facing lens straight-on, full facial visibility",                                    desc: "카메라를 향해 정면",        rotateY: 0   },
+    { id: "slt", kr: "슬라이틀리 턴", en: "slightly turned, subtle off-axis angle, 15-20 degree body rotation, candid relaxed stance, natural off-center orientation",                                     desc: "살짝 돌린 자연스러운 각도", rotateY: 20  },
+    { id: "q3f", kr: "3/4 앞 — 대각선 45°",        en: "three-quarter front view, 45-degree angle toward camera, diagonal body stance, classic portrait composition, cheekbone and jawline definition",                  desc: "약 45° 앞쪽 방향",          rotateY: 45  },
+    { id: "dq3", kr: "3/4 앞 (딥)",   en: "deep three-quarter view, 60-70 degree angle, strong diagonal composition, pronounced depth, editorial fashion angle",                                           desc: "60~80° 깊은 사선 각도",     rotateY: 70  },
+    { id: "si",  kr: "측면 프로필 — 90°", en: "side profile view, 90-degree lateral angle, full profile silhouette, clean jawline and nose bridge, architectural side composition",                             desc: "완전한 옆모습 프로필",      rotateY: 90  },
+    { id: "q3b", kr: "3/4 뒤 — 135°",        en: "three-quarter back view, 135-degree angle, rear diagonal composition, shoulder and nape emphasis, mysterious back-angle portrait",                               desc: "어깨선 강조 후방 사선",     rotateY: 135 },
+    { id: "ots", kr: "어깨 너머 시점",     en: "over-the-shoulder angle, looking back over one shoulder, 150-degree rear view, dynamic turning composition, implied motion",                                     desc: "한쪽 어깨 너머 시점",       rotateY: 155 },
+    { id: "bk",  kr: "후면",          en: "back view, full rear composition, 180-degree posterior angle, subject facing away from camera, hair and back detail emphasis",                                   desc: "완전한 뒷모습",             rotateY: 180 },
+  ],
+  lens: [
+    { id: "u14",  kr: "울트라 와이드 (14mm)", en: "14mm ultra-wide lens, extreme wide-angle distortion, dramatic perspective exaggeration, architectural barrel distortion, expansive environmental capture",   desc: "극도 광각, 강한 원근 왜곡" },
+    { id: "w24",  kr: "와이드 (24mm)",        en: "24mm wide-angle lens, environmental storytelling, moderate perspective distortion, wide depth of field, landscape and interior photography",               desc: "환경 강조, 원근 과장" },
+    { id: "w35",  kr: "와이드 (35mm)",        en: "35mm lens, street photography focal length, natural perspective with slight width, documentary realism, Leica reportage style",                           desc: "스트리트·다큐멘터리 느낌" },
+    { id: "n50",  kr: "표준 (50mm)",          en: "50mm standard lens, natural human eye perspective, no distortion, clean neutral focal length, classic portrait and street standard",                      desc: "인간 눈과 가장 유사" },
+    { id: "p85",  kr: "포트레이트 (85mm)",    en: "85mm portrait lens, flattering facial compression, beautiful background separation, creamy bokeh rendering, minimal skin distortion, golden ratio framing",desc: "인물 왜곡 최소화, 보케 강" },
+    { id: "t135", kr: "망원 (135mm)",         en: "135mm telephoto lens, strong background compression, subject isolation, shallow depth of field, compressed spatial depth, intimate long-distance portrait",desc: "배경 압축, 분리감 극대화" },
+    { id: "t200", kr: "망원 (200mm+)",        en: "200mm telephoto lens, extreme background compression, subject fully separated from environment, paparazzi distance, maximum bokeh intensity",              desc: "강한 배경 압축·분리" },
+    { id: "mac",  kr: "매크로",              en: "macro lens, 1:1 reproduction ratio, extreme close focusing distance, microscopic surface detail, texture and material revelation",                         desc: "1:1 이상 극초근접 촬영" },
+    { id: "fis",  kr: "어안 (Fisheye)",      en: "fisheye lens, 180-degree field of view, spherical barrel distortion, curvilinear perspective, immersive wide surround effect",                            desc: "180° 초광각 구면 왜곡" },
+    { id: "tls",  kr: "틸트시프트",          en: "tilt-shift lens, selective focus plane, miniature diorama effect, architectural perspective correction, shallow oblique depth of field",                   desc: "미니어처 효과, 선택적 초점면" },
+    { id: "ana",  kr: "아나모픽",            en: "anamorphic lens, 2.39:1 cinematic aspect, horizontal lens flares, oval bokeh rendering, cinematic scope look, Hollywood widescreen character",            desc: "와이드 보케, 수평 렌즈플레어" },
+    { id: "prm",  kr: "프라임 (단렌즈)",     en: "prime lens, fixed focal length, maximum optical sharpness, superior resolving power, no zoom compromise, purist photographic rendering",                  desc: "고정 화각, 최대 선예도" },
+  ],
+  focus: [
+    { id: "sdf", kr: "얕은 심도 (Shallow DOF)", en: "shallow depth of field, wide aperture f/1.4-f/2.8, subject sharp foreground with blurred background, creamy bokeh separation",                        desc: "배경 보케, 피사체만 선명" },
+    { id: "ddf", kr: "깊은 심도 (Deep DOF)",    en: "deep depth of field, narrow aperture f/8-f/16, foreground to background all in focus, landscape sharpness, everything tack-sharp",                   desc: "전경·배경 모두 선명" },
+    { id: "bkh", kr: "보케 (Bokeh)",            en: "bokeh background, out-of-focus specular highlights, circular light orbs, smooth background defocus, aesthetic blur rendering",                         desc: "아웃포커스 빛망울 표현" },
+    { id: "rck", kr: "랙 포커스",               en: "rack focus, focus pull between two subjects, shifting focal plane, selective depth transition, cinematic focus breathing effect",                       desc: "초점이 피사체 간 이동" },
+    { id: "sfc", kr: "소프트 포커스",           en: "soft focus, diffusion filter effect, gentle halation glow, ethereal portrait softness, dreamlike haze, romantic defocus",                              desc: "부드러운 전체 초점" },
+    { id: "mof", kr: "모션 블러",               en: "motion blur, slow shutter speed effect, kinetic movement trails, subject in motion, 1/30s or slower exposure, dynamic energy",                        desc: "움직임 블러, 속도감" },
+    { id: "lnf", kr: "렌즈 플레어",             en: "lens flare, anamorphic light streaks, sun flare artifacts, optical aberration glow, cinematic light bleeding, JJ Abrams flare style",                 desc: "광원으로 인한 빛 번짐" },
+    { id: "dbf", kr: "스플릿 디옵터",           en: "split diopter, simultaneous focus on two distances, dual focal plane, De Palma split focus technique, foreground and background both sharp",           desc: "두 거리에 동시 초점" },
+    { id: "dfz", kr: "디포커스",                en: "intentional defocus, full-frame blur, complete out-of-focus rendering, abstract background dominance, deliberate unsharp treatment",                   desc: "의도적 전체 흐림" },
+    { id: "hpf", kr: "하이퍼포컬 포커스",       en: "hyperfocal distance focus, maximum depth of field, infinity focus, everything from mid-ground to horizon in sharp focus, landscape maximum clarity",   desc: "최대 심도 확보 초점" },
+  ],
+  composition: [
+    { id: "rot", kr: "삼분할",           en: "rule of thirds composition, subject positioned on grid intersections, off-center placement, natural visual tension, balanced asymmetry",                          desc: "화면을 3×3 격자로 분할" },
+    { id: "ctr", kr: "중앙 구도",        en: "centered composition, subject perfectly centered in frame, symmetrical balance, direct confrontational framing, Kubrick-style centrism",                          desc: "피사체를 화면 정중앙에" },
+    { id: "dut", kr: "더치 앵글",        en: "Dutch angle, canted camera tilt, diagonal horizon line, psychological unease, disorienting tilt, noir thriller tension composition",                               desc: "기울어진 수평선, 불안감" },
+    { id: "sym", kr: "대칭 구도",        en: "perfect symmetrical composition, bilateral mirror balance, architectural symmetry, Wes Anderson symmetry style, geometric harmony",                                desc: "좌우 완전 대칭 균형" },
+    { id: "lea", kr: "리딩 룸",          en: "leading room, nose room, directional space in front of subject, gaze direction breathing space, motion anticipation framing",                                      desc: "시선 방향에 여백 확보" },
+    { id: "frm", kr: "프레임 인 프레임", en: "frame within frame, natural archway framing, window or doorway border, environmental frame device, layered depth composition",                                     desc: "내부 액자로 피사체 강조" },
+    { id: "lln", kr: "리딩 라인",        en: "leading lines, converging perspective lines, diagonal guiding elements, railroad or road lines directing gaze, strong linear composition",                         desc: "시선을 피사체로 유도" },
+    { id: "neg", kr: "네거티브 스페이스",en: "negative space composition, vast empty surroundings, minimalist subject isolation, breathing room, lonely figure in expansive emptiness",                          desc: "여백으로 고독·미니멀" },
+    { id: "gss", kr: "골든 레이시오",    en: "golden ratio composition, Fibonacci spiral framing, phi grid placement, natural harmonic balance, classical master painting proportion",                           desc: "황금비율 나선형 구도" },
+    { id: "dia", kr: "대각선 구도",      en: "diagonal composition, strong diagonal lines across frame, dynamic tension, energy through oblique angles, S-curve or Z-line flow",                                desc: "사선으로 역동성·긴장감" },
+    { id: "trc", kr: "삼각형 구도",      en: "triangular composition, stable pyramid structure, three-point anchor arrangement, solid grounded framing, classical Renaissance triangle",                         desc: "안정적인 삼각형 배치" },
+    { id: "lay", kr: "레이어링",         en: "layered depth composition, distinct foreground mid-ground and background planes, atmospheric depth, three-dimensional spatial storytelling",                       desc: "전경·중경·배경 층위" },
+    { id: "iso", kr: "격리 구도",        en: "isolation composition, single subject against plain background, subject fully separated from context, studio isolation aesthetic, clean negative space",           desc: "피사체를 배경에서 분리" },
+    { id: "rul", kr: "룰 브레이킹",      en: "intentional rule-breaking composition, unconventional framing, subject at extreme edge, deliberate imbalance, avant-garde experimental framing",                  desc: "의도적 구도 파괴" },
+  ],
+  lighting: [
+    { id: "frl", kr: "프론트 라이팅",     en: "front lighting, flat frontal illumination, even facial exposure, minimal shadow, beauty and commercial lighting setup, even skin tone rendering",                desc: "정면 조명, 그림자 최소화" },
+    { id: "sil", kr: "사이드 라이팅",     en: "side lighting, 90-degree lateral light source, strong chiaroscuro shadow, dramatic facial texture and contour, Caravaggio-style side light",                   desc: "45° 측면, 입체감 극대화" },
+    { id: "rml", kr: "렘브란트 라이팅",   en: "Rembrandt lighting, 45-degree upper diagonal light, triangular cheek highlight, classical portrait illumination, Old Masters painting quality",                desc: "45° 상측면, 삼각 하이라이트" },
+    { id: "bkl", kr: "백라이팅 (역광)",   en: "backlighting, rim light halo effect, subject silhouette edge glow, contre-jour technique, luminous hair light, atmospheric backlit glow",                       desc: "피사체 윤곽에 빛 테두리" },
+    { id: "slt", kr: "실루엣",            en: "silhouette lighting, extreme backlight, complete subject in shadow, bold shape definition only, high contrast shadow form, black figure against bright sky",    desc: "강한 역광, 형태만 표현" },
+    { id: "spl", kr: "스플릿 라이팅",     en: "split lighting, face divided exactly in half, 50% light 50% shadow, dramatic left-right division, high contrast dual-tone portrait",                           desc: "얼굴 정확히 반씩 명암" },
+    { id: "but", kr: "버터플라이 라이팅", en: "butterfly lighting, Paramount lighting, frontal overhead source, small butterfly shadow beneath nose, glamour Hollywood portrait setup",                         desc: "정면 상단, 코 아래 나비 그림자" },
+    { id: "lop", kr: "루프 라이팅",       en: "loop lighting, small loop shadow beside nose, 30-45 degree raised frontal source, commercial beauty standard, most flattering portrait lighting",              desc: "코 옆 작은 루프형 그림자" },
+    { id: "top", kr: "탑 라이팅",         en: "top lighting, overhead downward light source, dramatic skull and eye socket shadows, fashion editorial harshness, strong overhead drama",                       desc: "정수리 위에서 내리쬐는 조명" },
+    { id: "und", kr: "언더 라이팅",       en: "under lighting, upward light from below, horror inverted shadow, unnatural foreboding glow, monster movie lighting, dramatic theatrical effect",               desc: "아래에서 위로, 공포·극적" },
+    { id: "gol", kr: "골든 아워",         en: "golden hour lighting, warm sunrise or sunset light, long soft shadows, amber and orange tones, magic hour photography, cinematic warm glow",                   desc: "일출·일몰 따뜻한 자연광" },
+    { id: "blu", kr: "블루 아워",         en: "blue hour lighting, twilight ambient glow, cool indigo and cerulean tones, city lights emerging, pre-dawn or post-sunset atmosphere, quiet melancholy",        desc: "해 뜨기 전·후 청색광" },
+    { id: "hrh", kr: "하쉬 라이팅",       en: "harsh direct lighting, hard light source, strong defined shadows, midday sun or bare strobe, high contrast sharp-edged shadows, gritty realism",              desc: "강한 직사광, 선명한 그림자" },
+    { id: "sfl", kr: "소프트 라이팅",     en: "soft diffused lighting, large light source, gradual shadow transition, beauty dish or softbox quality, gentle wrap-around illumination",                       desc: "확산광, 부드러운 그림자" },
+    { id: "nrl", kr: "내추럴 라이팅",     en: "natural available light, ambient daylight, window light photography, no artificial source, organic unmanipulated illumination, documentary realism",           desc: "태양광·자연광 활용" },
+  ],
+  movement: [
+    { id: "sta", kr: "스태틱",           en: "static shot, locked-off camera, perfectly still tripod frame, no camera movement, composed and stable, deliberate motionless cinematography",                                    desc: "카메라 완전 고정" },
+    { id: "pan", kr: "패닝",             en: "pan shot, horizontal camera rotation on fixed axis, sweeping left-to-right or right-to-left, tracking subject laterally, smooth rotational motion",                              desc: "수평축 회전 이동" },
+    { id: "tlt", kr: "틸트",             en: "tilt shot, vertical camera rotation on fixed axis, upward reveal or downward scan, slow vertical pan, building reveal from base to top",                                          desc: "수직축 회전 상하" },
+    { id: "rol", kr: "롤 (더치 무브)",   en: "roll shot, camera rotating on lens axis, Dutch angle in motion, spinning horizon line, disorienting barrel roll, psychological tension movement",                                 desc: "렌즈 축 회전" },
+    { id: "dly", kr: "달리 인/아웃",     en: "dolly shot, camera physically moving forward or backward on rails, smooth tracking push-in or pull-out, depth of field change during movement, cinematic approach",             desc: "카메라 자체 전진·후진" },
+    { id: "trk", kr: "트래킹",           en: "tracking shot, camera moving laterally alongside subject, parallel subject follow, traveling shot, smooth side-to-side subject tracking, lateral dolly",                         desc: "피사체 따라 측면 이동" },
+    { id: "ped", kr: "페데스탈",         en: "pedestal shot, camera rising or lowering vertically while keeping same directional aim, elevator movement, vertical reveal without tilt",                                        desc: "카메라 수직 상승·하강" },
+    { id: "dlz", kr: "달리 줌 (버티고)", en: "dolly zoom, Vertigo effect, simultaneous zoom-out and dolly-in, spatial distortion, background stretches while subject stays constant, Hitchcock zoom",                         desc: "줌+달리 역방향, 공간 왜곡" },
+    { id: "orb", kr: "오빗 (아크 샷)",   en: "orbit shot, arc movement around subject, 360-degree circular camera path, revolving around stationary subject, product reveal rotation, hero moment circle",                    desc: "피사체 주위 원형 이동" },
+    { id: "hnd", kr: "핸드헬드",         en: "handheld shot, natural camera shake, organic documentary wobble, unstabilized human-carried movement, cinéma vérité realism, shoulder-mount energy",                            desc: "손흔들림, 다큐·현장감" },
+    { id: "stb", kr: "스테디캠",         en: "Steadicam shot, fluid gliding movement, mechanically stabilized walk-and-follow, smooth flowing tracking without rails, Kubrick corridor style",                                desc: "흔들림 없는 부드러운 추적" },
+    { id: "crn", kr: "크레인 / 지브",    en: "crane shot, jib arm movement, dramatic vertical sweep upward, towering rise to aerial height, God's-eye reveal from ground level, epic scale elevation",                        desc: "높이 변화, 드라마틱 상승" },
+    { id: "dra", kr: "드론 (에어리얼)",  en: "drone aerial shot, unmanned aerial vehicle perspective, smooth airborne movement, descending or ascending flight path, cinematic sky-to-ground reveal",                         desc: "항공 시점, 자유로운 이동" },
+    { id: "psh", kr: "푸시 인",          en: "push in, slow deliberate camera approach toward subject, gradual intimacy increase, tension building slow creep, methodical forward movement",                                   desc: "천천히 피사체에 접근" },
+    { id: "plo", kr: "풀 아웃",          en: "pull back, slow withdrawal from subject, gradual reveal of context, widening perspective, emotional detachment movement, world-reveal pullback",                                 desc: "천천히 피사체에서 후퇴" },
+    { id: "swp", kr: "스윕",             en: "sweep shot, wide arcing camera move across environment, landscape sweep, broad environmental traversal, sweeping panoramic motion",                                              desc: "넓은 공간을 쓸듯이 이동" },
+    { id: "whp", kr: "휩 팬",            en: "whip pan, ultra-fast horizontal pan, motion blur transition, smear-cut effect, energy-charged rapid direction change, MTV-style snap pan",                                      desc: "초고속 수평 패닝" },
+  ],
+  rig: [
+    { id: "tpd", kr: "트라이포드",         en: "tripod-mounted camera, locked-off stable platform, three-point ground support, maximum stability, no vibration, architectural precision framing",                    desc: "3발 고정 스탠드" },
+    { id: "mon", kr: "모노포드",           en: "monopod-supported camera, single-leg stabilizer, semi-mobile stability, sports and event photography rig, quick repositioning capability",                          desc: "1발 스탠드, 이동성+안정성" },
+    { id: "sld", kr: "슬라이더",           en: "camera slider, linear rail dolly system, smooth horizontal or vertical translation, tabletop or floor-mounted, precise mechanical movement",                        desc: "직선 레일 이동" },
+    { id: "gim", kr: "짐벌",              en: "3-axis gimbal stabilizer, electronic gyroscopic stabilization, mirrorless or cinema camera mounted, buttery smooth handheld movement, DJI RS style",               desc: "3축 전자식 흔들림 보정" },
+    { id: "scd", kr: "스테디캠 (Rig)",     en: "Steadicam rig, mechanical counterbalance arm system, operator body-mounted, long fluid gliding takes, hallway and staircase specialty",                            desc: "기계식 흔들림 보정" },
+    { id: "jib", kr: "지브 암",            en: "jib arm, counterweighted camera crane, small-scale crane movement, 2-6 meter reach, smooth vertical arc, ground-to-overhead elevation",                           desc: "작은 크레인, 수직 이동" },
+    { id: "fpv", kr: "FPV 드론",          en: "FPV racing drone, first-person view aerial, high-speed low-altitude flight, acrobatic maneuvers, kinetic immersive aerial perspective, extreme velocity feel",    desc: "1인칭 초고속 드론 시점" },
+    { id: "drc", kr: "시네마 드론",        en: "cinema drone, heavy-lift UAV platform, RED or ARRI camera airborne, stable 4K aerial cinematography, DJI Inspire or Freefly Alta style",                         desc: "고화질 안정적 항공 촬영" },
+    { id: "mot", kr: "모션컨트롤",         en: "motion control rig, computer-programmed robotic camera movement, repeatable exact path, VFX plate photography, precision frame-accurate repeatability",            desc: "컴퓨터 제어 반복 가능 무브" },
+    { id: "cab", kr: "케이블 캠",          en: "cable cam, wire-suspended camera system, spanning large distances, sports stadium overhead, zipline camera trajectory, high-speed overhead glide",                 desc: "와이어 이동식, 광각" },
+    { id: "shl", kr: "숄더 리그",          en: "shoulder-mounted rig, operator shoulder-braced camera, ENG broadcast style, documentary mobility, controlled handheld with added stability",                       desc: "어깨 거치, 핸드헬드+안정성" },
+    { id: "uwd", kr: "언더워터 하우징",    en: "underwater housing, waterproof camera enclosure, subaquatic perspective, dome port wide-angle, ocean or pool submersible photography",                            desc: "수중 촬영용 방수 케이스" },
+  ],
+
+  // ── 포즈 ──
+  pose: [
+    // ── 서있기 ──
+    { id: "ps01", kr: "S라인 모델 포즈",     en: "model pose, weight shift, S-curve stance",          desc: "골반에 힘 빼고 한쪽 다리에 중심" },
+    { id: "ps02", kr: "손 포켓 캐주얼",      en: "hands in pockets, relaxed standing pose",           desc: "자연스럽고 편안한 서있기" },
+    { id: "ps03", kr: "팔짱 끼고 서있기",    en: "arms crossed, standing confidently",                desc: "자신감 있는 포즈" },
+    { id: "ps04", kr: "한 손 허리",          en: "hand on hip, fashion pose",                         desc: "패션/에디토리얼 정석 포즈" },
+    { id: "ps05", kr: "뒤돌아 어깨 돌아보기",en: "looking back over shoulder, turning around",        desc: "트렌디한 반측면 돌아보기" },
+    // ── 앉기 ──
+    { id: "ps06", kr: "의자에 앉아있기",     en: "sitting on chair, seated pose",                     desc: "자연스러운 착석 자세" },
+    { id: "ps07", kr: "바닥에 앉아있기",     en: "sitting on floor, floor seated pose",               desc: "바닥에 편하게 앉은 자세" },
+    { id: "ps08", kr: "쪼그리고 하늘 보기",  en: "crouching, looking up at sky, squat pose",          desc: "쪼그려 앉아 위를 바라보는 트렌디 포즈" },
+    { id: "ps09", kr: "무릎 꿇고 앉기",      en: "kneeling pose, on one knee",                        desc: "무릎을 꿇은 우아한 자세" },
+    // ── 바닥 ──
+    { id: "ps10", kr: "바닥에 누워있기",     en: "lying on ground, lying down, reclined pose",        desc: "바닥에 누운 편안한 자세" },
+    { id: "ps11", kr: "옆으로 누워있기",     en: "lying on side, side-lying pose",                    desc: "옆으로 누운 모델 포즈" },
+    // ── 동적 포즈 ──
+    { id: "ps12", kr: "점프",               en: "jumping, mid-air, leaping pose",                    desc: "공중에 떠 있는 역동적 점프" },
+    { id: "ps13", kr: "하늘을 나는",        en: "floating, levitating, flying through air",          desc: "공중에 떠서 날아가는 느낌" },
+    { id: "ps14", kr: "달리는",             en: "running, sprinting, in full motion",                desc: "전력 질주하는 역동적 포즈" },
+    { id: "ps15", kr: "춤추는",             en: "dancing, dynamic dance pose, mid-dance",            desc: "춤 동작 중의 역동적인 순간" },
+    { id: "ps16", kr: "스트레칭",           en: "stretching pose, arms raised overhead",             desc: "팔을 뻗는 시원한 스트레칭 자세" },
+    // ── 감성/트렌디 ──
+    { id: "ps17", kr: "셀카 찍는 포즈",     en: "selfie pose, holding phone up, taking selfie",      desc: "스마트폰 들고 셀카 찍는 포즈" },
+    { id: "ps18", kr: "손으로 얼굴 감싸기", en: "hands framing face, cupping face gently",           desc: "양손으로 얼굴을 감싼 감성 포즈" },
+    { id: "ps19", kr: "눈 감고 고개 들기",  en: "eyes closed, head tilted up, serene expression",   desc: "눈 감고 위를 향한 평온한 포즈" },
+    { id: "ps20", kr: "머리카락 날리는",    en: "hair blowing in wind, windswept, tousled hair",     desc: "바람에 머리카락이 날리는 트렌디 포즈" },
+    { id: "ps21", kr: "입술에 손가락",      en: "finger on lips, thinking pose, pensive",            desc: "사색하는 듯한 감성적 포즈" },
+    { id: "ps22", kr: "모자 잡고 서있기",   en: "holding hat, hat gesture, casual fashion pose",     desc: "모자를 손으로 잡는 패션 포즈" },
+  ],
+};
+
+export const MJ_PARAM_GROUPS = [
+  { group: "STYLE", single: true, items: [
+    { id: "raw",   label: "RAW",    params: "--style raw",  tip: "AI의 미적 필터 OFF — 날것의 사실적 결과물. 지나친 미화 없이 프롬프트 그대로 표현." },
+  ]},
+  { group: "--s",  single: true, items: [
+    { id: "s0",    label: "S 0",    params: "--s 0",    tip: "스타일화 0 — AI 감성 최소화. 프롬프트에 충실한 결과." },
+    { id: "s250",  label: "S 250",  params: "--s 250",  tip: "스타일화 250 — 기본값. 적당한 AI 감성 추가." },
+    { id: "s500",  label: "S 500",  params: "--s 500",  tip: "스타일화 500 — 예술적 표현 강화. 색감·구도 자동 보정." },
+    { id: "s750",  label: "S 750",  params: "--s 750",  tip: "스타일화 750 — AI가 적극적으로 미적 판단. 화려해짐." },
+    { id: "s1000", label: "S 1000", params: "--s 1000", tip: "스타일화 최대 — AI가 마음껏 해석. 프롬프트 벗어날 수 있음." },
+  ]},
+  { group: "--c",  single: true, items: [
+    { id: "c5",    label: "C 5",    params: "--chaos 5",  tip: "카오스 5 — 결과 랜덤성 살짝 추가. 매번 조금씩 다른 결과." },
+  ]},
+  { group: "--w",  single: true, items: [
+    { id: "w5",    label: "W 5",    params: "--w 5",    tip: "Weird 5 — 이상하고 실험적인 요소 미세 추가. 창의적 결과." },
+  ]},
+  { group: "VER",  single: true, items: [
+    { id: "v7",    label: "V 7",    params: "--v 7",    tip: "Midjourney V7 — 최신 모델. 사실적 표현·디테일 최강." },
+    { id: "niji7", label: "Niji 7", params: "--niji 7", tip: "Niji 7 — 애니·일러스트 특화 모델. 2D 캐릭터에 최적." },
+  ]},
+  { group: "--q",  single: true, items: [
+    { id: "q2",    label: "Q 2",    params: "--q 2",    tip: "퀄리티 2 — 기본 품질. 생성 빠름." },
+    { id: "q4",    label: "Q 4",    params: "--q 4",    tip: "퀄리티 4 — 고품질. 디테일 강화, 생성 시간 2배." },
+  ]},
+  { group: "--iw", single: true, items: [
+    { id: "iw05",  label: "IW 0.5", params: "--iw 0.5", tip: "이미지 가중치 0.5 — 참조 이미지 영향 약하게. 프롬프트 우선." },
+    { id: "iw1",   label: "IW 1",   params: "--iw 1",   tip: "이미지 가중치 1 — 참조 이미지와 프롬프트 균형." },
+    { id: "iw15",  label: "IW 1.5", params: "--iw 1.5", tip: "이미지 가중치 1.5 — 참조 이미지 영향 강하게." },
+    { id: "iw2",   label: "IW 2",   params: "--iw 2",   tip: "이미지 가중치 최대 — 참조 이미지 거의 그대로. 스타일 복제." },
+  ]},
+  { group: "--p",  single: true, items: [
+    { id: "p1",    label: "--p",     params: "--p",      tip: "개인화 모드 — 내 /tune 설정 적용. 미리 설정한 스타일 자동 반영." },
+  ]},
+];
+export const MJ_AR_PRESETS = [
+  { id: "ar916",  label: "9:16",   params: "--ar 9:16" },
+  { id: "ar45",   label: "4:5",    params: "--ar 4:5" },
+  { id: "ar34",   label: "3:4",    params: "--ar 3:4" },
+  { id: "ar11",   label: "1:1",    params: "--ar 1:1" },
+  { id: "ar43",   label: "4:3",    params: "--ar 4:3" },
+  { id: "ar169",  label: "16:9",   params: "--ar 16:9" },
+  { id: "ar219",  label: "2:1",    params: "--ar 2:1" },
+  { id: "ar2391", label: "2.39:1", params: "--ar 239:100" },
+];
+export const MJ_PARAM_PRESETS = MJ_PARAM_GROUPS.flatMap(g => g.items);
+
+export const SUBJECT_TYPES = [
+  {
+    id: "person", kr: "인물", icon: "👤",
+    object: "person",
+    keywords: {
+      height: [
+        { phi: [0,12],    kr: "버즈아이 뷰 — 수직 탑다운",       en: "bird's-eye view" },
+        { phi: [12,30],   kr: "하이 앵글 — 위에서 내려봄",       en: "high angle shot" },
+        { phi: [30,50],   kr: "슬라이틀리 하이 — 눈높이 살짝 위", en: "slightly high angle" },
+        { phi: [50,70],   kr: "아이 레벨 — 자연스러운 눈높이",   en: "eye level" },
+        { phi: [70,90],   kr: "힙 레벨 — 허리 높이",             en: "hip level" },
+        { phi: [90,115],  kr: "니 레벨 — 무릎 높이",             en: "knee level" },
+        { phi: [115,180], kr: "웜스아이 뷰 — 바닥서 올려봄",     en: "worm's-eye view" },
+      ],
+      direction: [
+        { theta: [0,18],    kr: "정면",              en: "facing camera" },
+        { theta: [18,45],   kr: "살짝 턴 (15°)",     en: "slightly turned" },
+        { theta: [45,80],   kr: "3/4 앞 — 대각선 45°", en: "three-quarter view" },
+        { theta: [80,100],  kr: "측면 프로필 — 90°", en: "side profile" },
+        { theta: [100,135], kr: "3/4 뒤 — 135°",     en: "three-quarter back view" },
+        { theta: [135,165], kr: "어깨 너머 시점",     en: "over-the-shoulder" },
+        { theta: [165,180], kr: "후면",               en: "back view" },
+      ],
+      shot: [
+        { r: [0,0.25],    kr: "익스트림 클로즈업 — 눈/입 단독", en: "extreme close-up" },
+        { r: [0.25,0.42], kr: "클로즈업 — 얼굴+목",            en: "close-up shot" },
+        { r: [0.42,0.57], kr: "미디엄 클로즈업 — 가슴 위",     en: "medium close-up, chest-up" },
+        { r: [0.57,0.68], kr: "미디엄 샷 — 허리 위",           en: "medium shot, waist-up" },
+        { r: [0.68,0.78], kr: "카우보이 샷 — 허벅지 위",       en: "cowboy shot, thigh-up" },
+        { r: [0.78,0.88], kr: "풀 바디 샷 — 전신",             en: "full body shot" },
+        { r: [0.88,1],    kr: "와이드 샷 — 인물+배경",         en: "wide shot" },
+      ],
+    },
+  },
+  {
+    id: "place", kr: "실내/공간", icon: "🏠",
+    object: "building",
+    keywords: {
+      height: [
+        { phi: [0,18],    kr: "천장 뷰 (CCTV)",  en: "ceiling angle, top-down" },
+        { phi: [18,40],   kr: "하이 코너 뷰",    en: "high corner angle" },
+        { phi: [40,62],   kr: "스탠딩 하이",     en: "standing high angle" },
+        { phi: [62,85],   kr: "아이 레벨",       en: "eye level" },
+        { phi: [85,110],  kr: "로우 앵글",       en: "low angle" },
+        { phi: [110,180], kr: "그라운드 레벨",   en: "ground level" },
+      ],
+      direction: [
+        { theta: [0,30],    kr: "정면",      en: "straight-on" },
+        { theta: [30,75],   kr: "사선 뷰",   en: "diagonal view" },
+        { theta: [75,110],  kr: "코너 뷰",   en: "corner view" },
+        { theta: [110,150], kr: "후방 코너", en: "rear corner" },
+        { theta: [150,180], kr: "후면",      en: "rear-facing" },
+      ],
+      shot: [
+        { r: [0,0.35],   kr: "디테일 텍스처",      en: "detail close-up" },
+        { r: [0.35,0.55],kr: "오브젝트 샷",         en: "object shot" },
+        { r: [0.55,0.72],kr: "룸 샷",               en: "room shot" },
+        { r: [0.72,0.86],kr: "와이드 룸",           en: "wide interior" },
+        { r: [0.86,1],   kr: "파노라마 인테리어",   en: "interior panoramic" },
+      ],
+    },
+  },
+  {
+    id: "product", kr: "제품", icon: "📦",
+    object: "cosmetic",
+    keywords: {
+      height: [
+        { phi: [0,15],    kr: "탑 뷰 / 플랫레이", en: "flat lay, top-down" },
+        { phi: [15,35],   kr: "오버헤드",          en: "overhead angle" },
+        { phi: [35,55],   kr: "45도 스튜디오",     en: "45-degree product angle" },
+        { phi: [55,78],   kr: "아이 레벨",         en: "eye level" },
+        { phi: [78,110],  kr: "로우 앵글",         en: "low angle, upward perspective" },
+        { phi: [110,180], kr: "언더 뷰",           en: "bottom-up angle" },
+      ],
+      direction: [
+        { theta: [0,22],    kr: "정면",      en: "front face" },
+        { theta: [22,60],   kr: "3/4 뷰",    en: "three-quarter view" },
+        { theta: [60,100],  kr: "측면",      en: "side profile" },
+        { theta: [100,148], kr: "후방 3/4",  en: "rear three-quarter" },
+        { theta: [148,180], kr: "후면",      en: "rear view" },
+      ],
+      shot: [
+        { r: [0,0.28],   kr: "매크로 디테일", en: "macro detail" },
+        { r: [0.28,0.48],kr: "파트 클로즈업", en: "partial close-up" },
+        { r: [0.48,0.65],kr: "제품 클로즈업", en: "close-up" },
+        { r: [0.65,0.82],kr: "제품 샷",       en: "product shot" },
+        { r: [0.82,0.92],kr: "라이프스타일",  en: "lifestyle shot" },
+        { r: [0.92,1],   kr: "그룹 샷",       en: "group shot" },
+      ],
+    },
+  },
+
+  {
+    id: "landscape", kr: "풍경/자연", icon: "🌅",
+    object: "terrain",
+    keywords: {
+      height: [
+        { phi: [0,18],    kr: "항공 뷰",    en: "aerial view" },
+        { phi: [18,40],   kr: "드론 하이",  en: "high drone perspective" },
+        { phi: [40,62],   kr: "하이 앵글", en: "high angle" },
+        { phi: [62,82],   kr: "아이 레벨", en: "eye level" },
+        { phi: [82,110],  kr: "로우 앵글", en: "low angle" },
+        { phi: [110,180], kr: "그라운드 레벨", en: "ground level" },
+      ],
+      direction: [
+        { theta: [0,35],   kr: "정면",      en: "straight-on" },
+        { theta: [35,80],  kr: "사선",      en: "diagonal angle" },
+        { theta: [80,120], kr: "측면",      en: "lateral view" },
+        { theta: [120,165],kr: "후방 사선", en: "rear diagonal" },
+        { theta: [165,180],kr: "후면",      en: "rear-facing" },
+      ],
+      shot: [
+        { r: [0,0.35],   kr: "자연 디테일",         en: "nature detail" },
+        { r: [0.35,0.55],kr: "미디엄 랜드스케이프",  en: "medium landscape" },
+        { r: [0.55,0.72],kr: "와이드 랜드스케이프",  en: "wide landscape" },
+        { r: [0.72,0.86],kr: "익스트림 와이드",      en: "extreme wide" },
+        { r: [0.86,1],   kr: "시네마틱 파노라마",    en: "cinematic panoramic" },
+      ],
+    },
+  },
+];
+
+// 피사체별 기본 주체 (B안)
+export const DEFAULT_SUBJECT_PROMPTS = {
+  person:    "a person",
+  place:     "interior of a modern living room",
+  product:   "a product on clean white background",
+  landscape: "a natural landscape scene",
+
+};
+
+// 캐릭터 스타일 프리셋
+
+
+// ── LIGHTING 그룹 ─────────────────────────────────────────
+export const LIGHTING_GROUPS = [
+  {
+    id: "direction", label: "방향", en: "DIRECTION",
+    tags: [
+      { en: "front lighting",    kr: "정면광 — 얼굴 균일하게" },
+      { en: "side lighting",     kr: "측면광 — 입체감·드라마틱" },
+      { en: "backlighting",      kr: "역광 — 실루엣·빛 번짐" },
+      { en: "rim lighting",      kr: "윤곽광 — 피사체 테두리 빛" },
+      { en: "top lighting",      kr: "탑라이트 — 위에서 내리쬐기" },
+      { en: "under lighting",    kr: "아래광 — 공포·신비 느낌" },
+      { en: "butterfly lighting",kr: "나비조명 — 코 아래 그림자" },
+      { en: "rembrandt lighting",kr: "렘브란트 — 삼각 그림자" },
+    ],
+  },
+  {
+    id: "time", label: "시간/분위기", en: "AMBIENCE",
+    tags: [
+      { en: "golden hour",       kr: "골든아워 — 일출·일몰 황금빛" },
+      { en: "blue hour",         kr: "블루아워 — 새벽·해질녘 푸른빛" },
+      { en: "midday sun",        kr: "한낮 — 강한 직사광" },
+      { en: "overcast light",    kr: "흐린날 — 부드러운 확산광" },
+      { en: "candlelight",       kr: "촛불 — 따뜻한 흔들리는 빛" },
+      { en: "neon light",        kr: "네온광 — 도시 야경 컬러빛" },
+      { en: "moonlight",         kr: "달빛 — 차갑고 신비로운" },
+      { en: "studio lighting",   kr: "스튜디오 — 인공 균형광" },
+    ],
+  },
+  {
+    id: "intensity", label: "강도/대비", en: "INTENSITY",
+    tags: [
+      { en: "high key lighting", kr: "하이키 — 밝고 평탄, 그림자 없음" },
+      { en: "low key lighting",  kr: "로우키 — 어둡고 강한 명암" },
+      { en: "dramatic lighting", kr: "드라마틱 — 강렬한 명암 대비" },
+      { en: "soft lighting",     kr: "소프트 — 부드럽고 균일한 빛" },
+      { en: "harsh lighting",    kr: "하드 — 선명한 그림자" },
+      { en: "diffused lighting", kr: "확산광 — 방향 없는 은은한 빛" },
+    ],
+  },
+];
+
+// ── MOOD 그룹 ──────────────────────────────────────────────
+export const MOOD_GROUPS = [
+  {
+    id: "emotion", label: "감정", en: "EMOTION",
+    tags: [
+      { en: "joyful",       kr: "즐거운" },
+      { en: "serene",       kr: "평화로운" },
+      { en: "hopeful",      kr: "희망적인" },
+      { en: "romantic",     kr: "로맨틱한" },
+      { en: "nostalgic",    kr: "향수어린" },
+      { en: "melancholic",  kr: "우울한" },
+      { en: "lonely",       kr: "고독한" },
+      { en: "anxious",      kr: "불안한" },
+      { en: "tense",        kr: "긴장감있는" },
+      { en: "mysterious",   kr: "신비로운" },
+      { en: "horror",       kr: "공포스러운" },
+      { en: "ecstatic",     kr: "황홀한" },
+      { en: "warm",         kr: "따뜻한" },
+      { en: "blissful",     kr: "행복한" },
+    ],
+  },
+  {
+    id: "atmosphere", label: "분위기", en: "ATMOSPHERE",
+    tags: [
+      { en: "ethereal",     kr: "신비로운" },
+      { en: "dreamy",       kr: "몽환적인" },
+      { en: "mystical",     kr: "신비한" },
+      { en: "calm",         kr: "차분한" },
+      { en: "dark",         kr: "어두운" },
+      { en: "moody",        kr: "무거운" },
+      { en: "pensive",      kr: "사색적인" },
+      { en: "spectral",     kr: "유령같은" },
+      { en: "otherworldly", kr: "이세계같은" },
+      { en: "enchanted",    kr: "마법같은" },
+      { en: "dramatic",     kr: "극적인" },
+      { en: "intimate",     kr: "친밀한" },
+      { en: "raw",          kr: "날것의" },
+      { en: "whimsical",    kr: "기발한" },
+    ],
+  },
+  {
+    id: "color_temp", label: "색온도/톤", en: "COLOR TONE",
+    tags: [
+      { en: "warm tone",    kr: "따뜻한톤" },
+      { en: "cool tone",    kr: "차가운톤" },
+      { en: "vivid",        kr: "비비드" },
+      { en: "pastel",       kr: "파스텔" },
+      { en: "muted",        kr: "뮤트" },
+      { en: "neon",         kr: "네온" },
+      { en: "monochromatic",kr: "단색조" },
+      { en: "high contrast",kr: "하이콘트라스트" },
+      { en: "gradient",     kr: "그라데이션" },
+      { en: "earth tones",  kr: "어스톤" },
+      { en: "golden",       kr: "황금빛" },
+      { en: "desaturated",  kr: "탈채도" },
+    ],
+  },
+];
+
+// ── STYLE 그룹 ──────────────────────────────────────────────
+export const STYLE_GROUPS = [
+  {
+    id: "rendering", label: "렌더링", en: "RENDERING",
+    tags: [
+      { en: "cinematic",       kr: "시네마틱",    free: true  },
+      { en: "photorealistic",  kr: "포토리얼",    free: true  },
+      { en: "editorial",       kr: "화보연출",    free: true  },
+      { en: "illustration",    kr: "일러스트",    free: true },
+      { en: "3D rendering",    kr: "3D렌더링",    free: true },
+      { en: "hyperrealistic",  kr: "극사실적",    free: true },
+      { en: "film grain",      kr: "필름그레인",  free: true },
+      { en: "analog photo",    kr: "아날로그사진", free: true },
+      { en: "RAW photo",       kr: "RAW사진",     free: true },
+    ],
+  },
+  {
+    id: "genre", label: "장르/세계관", en: "GENRE",
+    tags: [
+      { en: "surreal",          kr: "초현실",      free: true  },
+      { en: "cyberpunk",        kr: "사이버펑크",  free: true  },
+      { en: "fantastical",      kr: "환상적",      free: true },
+      { en: "dreamcore",        kr: "드림코어",    free: true },
+      { en: "vaporwave",        kr: "베이퍼웨이브", free: true },
+      { en: "y2k",              kr: "Y2K감성",     free: true },
+      { en: "neon noir",        kr: "네온누아르",  free: true },
+      { en: "post-apocalyptic", kr: "포스트아포칼립틱", free: true },
+      { en: "cottagecore",      kr: "코티지코어",  free: true },
+      { en: "dark academia",    kr: "다크아카데미아", free: true },
+      { en: "solarpunk",        kr: "솔라펑크",    free: true },
+      { en: "sci-fi",           kr: "SF풍",        free: true },
+    ],
+  },
+  {
+    id: "design", label: "디자인", en: "DESIGN",
+    tags: [
+      { en: "minimal",          kr: "미니멀",      free: true  },
+      { en: "elegant",          kr: "우아한",      free: true  },
+      { en: "retro",            kr: "레트로",      free: true },
+      { en: "modern",           kr: "모던",        free: true },
+      { en: "geometric",        kr: "기하학적",    free: true },
+      { en: "organic",          kr: "유기적",      free: true },
+      { en: "abstract",         kr: "추상적",      free: true },
+      { en: "pop art",          kr: "팝아트",      free: true },
+      { en: "bauhaus",          kr: "바우하우스",  free: true },
+      { en: "art nouveau",      kr: "아르누보",    free: true },
+    ],
+  },
+];
+
+// flat 배열 (기존 코드 호환용)
+export const MOOD_TAGS = MOOD_GROUPS.flatMap(g => g.tags);
+export const STYLE_TAGS = STYLE_GROUPS.flatMap(g => g.tags.map(t => ({ ...t, free: t.free ?? true })));
+
+// ── 앵글 프리셋 ─────────────────────────────────────────────
+export const ANGLE_PRESETS = [
+  { id:"paparazzi",  label:"파파라치",   icon:"📸",
+    phi:72, theta:35, r:0.72,
+    desc:"자연스러운 포착, 비스듬히 옆에서",
+    extraKw:"" },
+  { id:"idcard",     label:"증명사진",   icon:"🪪",
+    phi:65, theta:0,  r:0.38,
+    desc:"정면, 눈높이, 상반신",
+    extraKw:"" },
+  { id:"runway",     label:"런웨이",     icon:"👠",
+    phi:60, theta:0,  r:0.92,
+    desc:"정면, 눈높이, 풀바디",
+    extraKw:"" },
+  { id:"cctv",       label:"CCTV",       icon:"📹",
+    phi:12, theta:15, r:0.85,
+    desc:"천장 탑뷰, 어안렌즈 볼록감, 토이카메라 스타일",
+    extraKw:"fisheye lens distortion, CCTV overhead angle, toy camera effect, barrel distortion" },
+  { id:"insta",      label:"인스타감성", icon:"✨",
+    phi:35, theta:40, r:0.60,
+    desc:"위에서 대각선, 미디엄",
+    extraKw:"" },
+  { id:"product",    label:"제품광고",   icon:"💎",
+    phi:40, theta:30, r:0.55,
+    desc:"45도 하이앵글, 클로즈업",
+    extraKw:"" },
+  { id:"fisheye",    label:"어안렌즈",   icon:"🐟",
+    phi:25, theta:20, r:0.78,
+    desc:"볼록 왜곡, 넓은 화각, 피시카메라",
+    extraKw:"fisheye lens, extreme barrel distortion, 180-degree field of view, rounded edges" },
+  { id:"wideangle",  label:"광각렌즈",   icon:"🔭",
+    phi:62, theta:25, r:0.82,
+    desc:"넓은 화각, 공간감 극대화",
+    extraKw:"wide angle lens, 24mm, expansive field of view, slight distortion at edges" },
+  { id:"worm",       label:"웜스아이",   icon:"🐛",
+    phi:140, theta:10, r:0.75,
+    desc:"바닥서 올려봄, 웅장함",
+    extraKw:"" },
+  { id:"birdseye",   label:"버즈아이",   icon:"🦅",
+    phi:8,  theta:0,  r:0.90,
+    desc:"수직 탑다운, 위에서 내려봄",
+    extraKw:"" },
+];
+
+export const QUALITY_CHIPS = [
+  { id:"crisp",   label:"CRISP",   kr:"선명",   en:"sharp-focus, crystal clear, crisp image quality" },
+  { id:"detail",  label:"DETAIL",  kr:"디테일",  en:"hyper detailed, fine details, depth-rich texture" },
+  { id:"quality", label:"QUALITY", kr:"고품질",  en:"ultra high-resolution, 8k resolution, high fidelity" },
+]; // 재질 단일 선택 // "mood" | "style" | null
