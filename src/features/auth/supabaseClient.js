@@ -33,7 +33,6 @@ if (missingSupabaseEnvKeys.length === 0) {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        flowType: "pkce",
       },
     });
     } catch (error) {
