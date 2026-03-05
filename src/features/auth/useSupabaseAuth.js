@@ -71,10 +71,12 @@ export function useSupabaseAuth() {
 
   const signInWithGoogle = async () => {
     if (!supabase) return { error: new Error("Supabase is not configured") };
+    const redirectTo = configuredAuthRedirectUrl || window.location.origin;
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: configuredAuthRedirectUrl || window.location.origin,
+        redirectTo,
         skipBrowserRedirect: true,
       },
     });
@@ -86,7 +88,13 @@ export function useSupabaseAuth() {
       return { error: null };
     }
 
-    return { error: new Error("Google 로그인 URL을 생성하지 못했습니다.") };
+    const fallback = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo },
+    });
+
+    if (fallback.error) return { error: fallback.error };
+    return { error: new Error("Google 로그인 리다이렉트를 시작하지 못했습니다.") };
   };
 
   const signOut = async () => {
