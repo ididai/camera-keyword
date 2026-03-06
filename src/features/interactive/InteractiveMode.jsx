@@ -10,6 +10,8 @@ import {
   validatePromptInput,
 } from "./promptBuilder";
 import { detectAwkwardExpressions } from "./promptQuality";
+import { getPromptHistory, removePromptHistory, savePromptHistory } from "./historyStore";
+import { getUserPresets, removeUserPreset, renameUserPreset, saveUserPreset } from "./userPresetStore";
 
 const PERSON_SUBJECT = SUBJECT_TYPES.find((item) => item.id === "person") ?? SUBJECT_TYPES[0];
 const ANCHOR_ACCENT = "#3df6ff";
@@ -114,6 +116,9 @@ export default function InteractiveMode() {
 
   const [viewerSize, setViewerSize] = useState({ width: 0, height: 0 });
   const [copied, setCopied] = useState(false);
+  const [promptHistory, setPromptHistory] = useState([]);
+  const [userPresets, setUserPresets] = useState([]);
+  const [presetName, setPresetName] = useState("");
 
   const viewerRef = useRef(null);
   const mountRef = useRef(null);
@@ -137,6 +142,11 @@ export default function InteractiveMode() {
     onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    setPromptHistory(getPromptHistory());
+    setUserPresets(getUserPresets());
   }, []);
 
   useEffect(() => {
@@ -394,6 +404,13 @@ export default function InteractiveMode() {
 
     try {
       await navigator.clipboard.writeText(displayPrompt);
+      setPromptHistory(
+        savePromptHistory({
+          text: displayPrompt,
+          lang: promptLang,
+          source: "auto",
+        }),
+      );
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -406,6 +423,13 @@ export default function InteractiveMode() {
       el.select();
       try {
         document.execCommand("copy");
+        setPromptHistory(
+          savePromptHistory({
+            text: displayPrompt,
+            lang: promptLang,
+            source: "auto",
+          }),
+        );
         setCopied(true);
         setTimeout(() => setCopied(false), 1800);
       } catch {
@@ -413,6 +437,49 @@ export default function InteractiveMode() {
       }
       document.body.removeChild(el);
     }
+  };
+
+  const saveCurrentPromptToHistory = () => {
+    if (!displayPrompt || promptValidationError) return;
+    setPromptHistory(
+      savePromptHistory({
+        text: displayPrompt,
+        lang: promptLang,
+        source: "manual",
+      }),
+    );
+  };
+
+  const saveCurrentPreset = () => {
+    const fallbackName = `프리셋 ${userPresets.length + 1}`;
+    const next = saveUserPreset({
+      name: (presetName || "").trim() || fallbackName,
+      phi,
+      theta,
+      r,
+      subjectPos,
+      gazeVector,
+      arPresetId,
+    });
+    setUserPresets(next);
+    setPresetName("");
+  };
+
+  const applyUserPreset = (preset) => {
+    setPhi(preset.phi);
+    setTheta(preset.theta);
+    setR(preset.r);
+    setSubjectPos(preset.subjectPos || { x: 0, y: 0 });
+    setGazeVector(preset.gazeVector || { x: 0, y: 0 });
+    setArPresetId(preset.arPresetId || "ar916");
+    setActivePreset(null);
+  };
+
+  const handleRenamePreset = (preset) => {
+    if (typeof window === "undefined") return;
+    const nextName = window.prompt("프리셋 이름", preset.name || "");
+    if (nextName == null) return;
+    setUserPresets(renameUserPreset(preset.id, nextName));
   };
 
   useEffect(() => {
@@ -1224,6 +1291,229 @@ export default function InteractiveMode() {
         >
           {copied ? "복사 완료" : "복사 COPY"}
         </button>
+      </div>
+
+      <div
+        style={{
+          background: "#0d0d0d",
+          borderTop: "1px solid #222",
+          padding: "10px 16px 14px",
+          display: "grid",
+          gap: 12,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span
+            style={{
+              fontSize: 10,
+              color: "#7bdff2",
+              fontFamily: "'Arial Black',sans-serif",
+              letterSpacing: "0.14em",
+            }}
+          >
+            USER PRESET
+          </span>
+          <input
+            type="text"
+            value={presetName}
+            onChange={(event) => setPresetName(event.target.value)}
+            placeholder="프리셋 이름"
+            style={{
+              width: isMobile ? "100%" : 180,
+              background: "#1a1a1a",
+              border: "1px solid #2e4154",
+              borderRadius: 6,
+              padding: "6px 8px",
+              color: "#e0ddd4",
+              fontSize: 12,
+              fontFamily: "sans-serif",
+            }}
+          />
+          <button
+            type="button"
+            onClick={saveCurrentPreset}
+            style={{
+              background: "#7bdff2",
+              border: "none",
+              borderRadius: 6,
+              padding: "6px 10px",
+              color: "#111",
+              fontSize: 12,
+              fontWeight: 800,
+              fontFamily: "sans-serif",
+              cursor: "pointer",
+            }}
+          >
+            현재값 저장
+          </button>
+        </div>
+
+        {userPresets.length ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {userPresets.map((preset) => (
+              <div
+                key={preset.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  border: "1px solid #2e4154",
+                  borderRadius: 999,
+                  padding: "3px 6px",
+                  background: "#12161a",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => applyUserPreset(preset)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#c9ecf3",
+                    fontSize: 11,
+                    fontFamily: "sans-serif",
+                    cursor: "pointer",
+                  }}
+                >
+                  {preset.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRenamePreset(preset)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#91a4af",
+                    fontSize: 10,
+                    cursor: "pointer",
+                    fontFamily: "sans-serif",
+                  }}
+                >
+                  이름
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserPresets(removeUserPreset(preset.id))}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#ff9ab6",
+                    fontSize: 10,
+                    cursor: "pointer",
+                    fontFamily: "sans-serif",
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ color: "#666", fontSize: 12, fontFamily: "sans-serif" }}>
+            저장된 프리셋이 없습니다.
+          </div>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span
+            style={{
+              fontSize: 10,
+              color: "#ffd166",
+              fontFamily: "'Arial Black',sans-serif",
+              letterSpacing: "0.14em",
+            }}
+          >
+            PROMPT HISTORY
+          </span>
+          <button
+            type="button"
+            onClick={saveCurrentPromptToHistory}
+            disabled={!displayPrompt || Boolean(promptValidationError)}
+            style={{
+              background: "#ffd166",
+              border: "none",
+              borderRadius: 6,
+              padding: "6px 10px",
+              color: "#1a1a1a",
+              fontSize: 12,
+              fontWeight: 800,
+              fontFamily: "sans-serif",
+              cursor: !displayPrompt || promptValidationError ? "default" : "pointer",
+              opacity: !displayPrompt || promptValidationError ? 0.5 : 1,
+            }}
+          >
+            현재 프롬프트 저장
+          </button>
+        </div>
+
+        {promptHistory.length ? (
+          <div style={{ display: "grid", gap: 6 }}>
+            {promptHistory.slice(0, 8).map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "#121212",
+                  border: "1px solid #2b2b2b",
+                  borderRadius: 8,
+                  padding: "6px 8px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(item.text);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1200);
+                    } catch {
+                      setTranslateError("히스토리 복사에 실패했어요.");
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    textAlign: "left",
+                    background: "transparent",
+                    border: "none",
+                    color: "#d8d8d8",
+                    fontSize: 12,
+                    fontFamily: "monospace",
+                    cursor: "pointer",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={item.text}
+                >
+                  {item.text}
+                </button>
+                <span style={{ color: "#666", fontSize: 10, fontFamily: "sans-serif" }}>
+                  {item.lang?.toUpperCase?.() || "EN"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPromptHistory(removePromptHistory(item.id))}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#ff9ab6",
+                    fontSize: 10,
+                    cursor: "pointer",
+                    fontFamily: "sans-serif",
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ color: "#666", fontSize: 12, fontFamily: "sans-serif" }}>
+            저장된 프롬프트 히스토리가 없습니다.
+          </div>
+        )}
       </div>
     </div>
   );
