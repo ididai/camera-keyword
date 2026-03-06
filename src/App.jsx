@@ -64,7 +64,6 @@ function MissingEnvNotice() {
 }
 
 export default function App() {
-  const [langKR, setLangKR] = useState(false);
   const [authLoadingAction, setAuthLoadingAction] = useState(false);
   const [authError, setAuthError] = useState("");
   const { session, loading, signInWithGoogle, signOut } = useSupabaseAuth();
@@ -171,24 +170,6 @@ export default function App() {
                 >
                   로그아웃
                 </button>
-                <button
-                  onClick={() => setLangKR((prev) => !prev)}
-                  style={{
-                    fontSize: 12,
-                    background: langKR ? "#f19eb8" : "#222",
-                    color: "#e0ddd4",
-                    padding: "4px 12px",
-                    borderRadius: 20,
-                    letterSpacing: "0.1em",
-                    fontFamily: "sans-serif",
-                    border: "none",
-                    cursor: "pointer",
-                    fontWeight: 700,
-                    transition: "background 0.2s",
-                  }}
-                >
-                  {langKR ? "한국어" : "EN"}
-                </button>
               </>
             ) : null}
           </div>
@@ -210,7 +191,7 @@ export default function App() {
             </div>
           }
         >
-          <InteractiveMode langKR={langKR} />
+          <InteractiveMode />
         </Suspense>
       ) : null}
     </div>
