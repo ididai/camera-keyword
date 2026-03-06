@@ -12,6 +12,8 @@ import {
 import { detectAwkwardExpressions } from "./promptQuality";
 
 const PERSON_SUBJECT = SUBJECT_TYPES.find((item) => item.id === "person") ?? SUBJECT_TYPES[0];
+const ANCHOR_ACCENT = "#3df6ff";
+const ANCHOR_ACCENT_SOFT = "rgba(61,246,255,0.28)";
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -805,9 +807,9 @@ export default function InteractiveMode() {
             style={{
               width: `${frameRect.width}px`,
               height: `${frameRect.height}px`,
-              border: "1px dashed rgba(241,158,184,0.86)",
+              border: `2px dashed ${ANCHOR_ACCENT}`,
               borderRadius: 8,
-              boxShadow: "0 0 0 1px rgba(0,0,0,0.35) inset",
+              boxShadow: "0 0 0 1px rgba(0,0,0,0.35) inset, 0 0 20px rgba(61,246,255,0.16)",
               pointerEvents: "auto",
               position: "relative",
               touchAction: "none",
@@ -821,12 +823,38 @@ export default function InteractiveMode() {
                 left: `${((subjectPos.x + 1) / 2) * 100}%`,
                 top: `${((subjectPos.y + 1) / 2) * 100}%`,
                 transform: "translate(-50%, -50%)",
-                width: 14,
-                height: 14,
+                width: 22,
+                height: 22,
                 borderRadius: "50%",
-                border: "2px solid #f19eb8",
-                background: "rgba(241,158,184,0.2)",
-                boxShadow: "0 0 12px rgba(241,158,184,0.55)",
+                border: `3px solid ${ANCHOR_ACCENT}`,
+                background: "rgba(61,246,255,0.22)",
+                boxShadow: "0 0 16px rgba(61,246,255,0.9), 0 0 0 4px rgba(10,19,30,0.65)",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <div style={{ width: 10, height: 2, borderRadius: 99, background: ANCHOR_ACCENT }} />
+              <div
+                style={{
+                  position: "absolute",
+                  width: 2,
+                  height: 10,
+                  borderRadius: 99,
+                  background: ANCHOR_ACCENT,
+                }}
+              />
+            </div>
+            <div
+              style={{
+                position: "absolute",
+                left: `${((subjectPos.x + 1) / 2) * 100}%`,
+                top: `${((subjectPos.y + 1) / 2) * 100}%`,
+                transform: "translate(-50%, -50%)",
+                width: 34,
+                height: 34,
+                borderRadius: "50%",
+                border: `1px solid ${ANCHOR_ACCENT_SOFT}`,
+                boxShadow: `0 0 14px ${ANCHOR_ACCENT_SOFT}`,
               }}
             />
             <div
@@ -835,9 +863,9 @@ export default function InteractiveMode() {
                 left: "50%",
                 top: "50%",
                 transform: "translate(-50%, -50%)",
-                width: 1,
+                width: 2,
                 height: "100%",
-                background: "rgba(241,158,184,0.25)",
+                background: ANCHOR_ACCENT_SOFT,
               }}
             />
             <div
@@ -847,8 +875,8 @@ export default function InteractiveMode() {
                 top: "50%",
                 transform: "translateY(-50%)",
                 width: "100%",
-                height: 1,
-                background: "rgba(241,158,184,0.25)",
+                height: 2,
+                background: ANCHOR_ACCENT_SOFT,
               }}
             />
           </div>

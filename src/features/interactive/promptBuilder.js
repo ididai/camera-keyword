@@ -7,6 +7,18 @@ const BANNED_PATTERNS = [
 ];
 
 const MULTI_SPACE = /\s{2,}/g;
+const CAMERA_TERM_NORMALIZERS = [
+  { pattern: /\bcowboy\s+shot\b/gi, replace: "thigh-up framing" },
+  { pattern: /\bthree[-\s]?quarter\s+back\s+view\b/gi, replace: "rear 45-degree oblique view" },
+  { pattern: /\brear\s+three[-\s]?quarter\b/gi, replace: "rear 45-degree oblique view" },
+  { pattern: /\bthree[-\s]?quarter\s+front\s+view\b/gi, replace: "front 45-degree oblique view" },
+  { pattern: /\bthree[-\s]?quarter\s+view\b/gi, replace: "45-degree oblique view" },
+  { pattern: /\bbird'?s-eye\s+view\b/gi, replace: "top-down overhead view" },
+  { pattern: /\bworm'?s-eye\s+view\b/gi, replace: "extreme low-angle upward view" },
+  { pattern: /카우보이\s*샷/gi, replace: "허벅지 위 프레이밍" },
+  { pattern: /(버즈아이|버드아이)\s*뷰/gi, replace: "수직 탑다운 시점" },
+  { pattern: /웜스아이\s*뷰/gi, replace: "극저각 상향 시점" },
+];
 
 export const SEGMENT_COLORS = {
   subject: "#ffd166",
@@ -28,6 +40,14 @@ function normalizeToken(token) {
     .trim()
     .replace(/^,+|,+$/g, "")
     .replace(MULTI_SPACE, " ");
+}
+
+function normalizeCameraTerm(token) {
+  let normalized = normalizeToken(token);
+  for (const rule of CAMERA_TERM_NORMALIZERS) {
+    normalized = normalized.replace(rule.pattern, rule.replace);
+  }
+  return normalized.replace(MULTI_SPACE, " ").trim();
 }
 
 function cleanSubject(subject) {
@@ -73,7 +93,7 @@ export function buildPromptSegments({
     { type: "angle", text: gaze },
     { type: "composition", text: composition },
     { type: "framing", text: ratioFraming },
-  ].map((segment) => ({ ...segment, text: normalizeToken(segment.text) }));
+  ].map((segment) => ({ ...segment, text: normalizeCameraTerm(segment.text) }));
 
   // 타입은 유지한 채 중복 텍스트만 제거
   const seen = new Set();

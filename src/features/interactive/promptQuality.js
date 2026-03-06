@@ -38,6 +38,11 @@ export const AWKWARD_EXPRESSIONS = [
   "ultra high quality",
   "amazing",
   "beautiful",
+  "cowboy shot",
+  "three-quarter view",
+  "rear three-quarter",
+  "bird's-eye view",
+  "worm's-eye view",
 ];
 
 export function detectAwkwardExpressions(prompt) {
