@@ -12,11 +12,12 @@ export const SEGMENT_COLORS = {
   subject: "#ffd166",
   shot: "#7bdff2",
   angle: "#b2f7ef",
+  composition: "#ffb86b",
   framing: "#f7c6ff",
   ratio: "#f7aef8",
 };
 
-export const DEFAULT_PROMPT_ORDER = ["subject", "shot", "angle", "framing"];
+export const DEFAULT_PROMPT_ORDER = ["subject", "shot", "angle", "composition", "framing"];
 
 export function hasKorean(text) {
   return /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(text || "");
@@ -59,6 +60,7 @@ export function buildPromptSegments({
   height,
   direction,
   gaze,
+  composition,
   ratioFraming,
   arValue,
 }) {
@@ -69,6 +71,7 @@ export function buildPromptSegments({
     { type: "angle", text: height },
     { type: "angle", text: direction },
     { type: "angle", text: gaze },
+    { type: "composition", text: composition },
     { type: "framing", text: ratioFraming },
   ].map((segment) => ({ ...segment, text: normalizeToken(segment.text) }));
 

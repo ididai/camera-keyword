@@ -11,15 +11,59 @@ import {
 } from "./promptBuilder";
 import { detectAwkwardExpressions } from "./promptQuality";
 
-function getGazeKeyword(subjectId, theta, isKorean) {
-  if (subjectId !== "person") return "";
+const PERSON_SUBJECT = SUBJECT_TYPES.find((item) => item.id === "person") ?? SUBJECT_TYPES[0];
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function parseRatio(value) {
+  const [w, h] = String(value || "9:16").split(":").map(Number);
+  if (!w || !h) return 9 / 16;
+  return w / h;
+}
+
+function getGazeKeyword(theta, isKorean) {
   const abs = Math.abs(theta);
   const right = theta > 0;
 
   if (abs > 150) return "";
   if (abs < 12) return isKorean ? "카메라 정면 응시" : "looking directly at camera";
-  if (abs >= 80) return right ? (isKorean ? "오른쪽 측면 시선" : "facing right") : (isKorean ? "왼쪽 측면 시선" : "facing left");
-  return right ? (isKorean ? "오른쪽 비스듬히" : "angled right") : (isKorean ? "왼쪽 비스듬히" : "angled left");
+  if (abs >= 80) {
+    return right
+      ? (isKorean ? "오른쪽 측면 시선" : "facing right")
+      : (isKorean ? "왼쪽 측면 시선" : "facing left");
+  }
+
+  return right
+    ? (isKorean ? "오른쪽 비스듬히" : "angled right")
+    : (isKorean ? "왼쪽 비스듬히" : "angled left");
+}
+
+function getCompositionKeyword(position, isKorean) {
+  const threshold = 0.28;
+  const col = position.x < -threshold ? "left" : position.x > threshold ? "right" : "center";
+  const row = position.y < -threshold ? "top" : position.y > threshold ? "bottom" : "middle";
+
+  if (isKorean) {
+    if (col === "center" && row === "middle") return "중앙 배치";
+    if (row === "middle") return col === "left" ? "좌측 1/3 배치" : "우측 1/3 배치";
+    if (col === "center") return row === "top" ? "상단 1/3 배치" : "하단 1/3 배치";
+
+    if (row === "top" && col === "left") return "좌상단 1/3 교차점 배치";
+    if (row === "top" && col === "right") return "우상단 1/3 교차점 배치";
+    if (row === "bottom" && col === "left") return "좌하단 1/3 교차점 배치";
+    return "우하단 1/3 교차점 배치";
+  }
+
+  if (col === "center" && row === "middle") return "subject centered in frame";
+  if (row === "middle") return col === "left" ? "subject at left third" : "subject at right third";
+  if (col === "center") return row === "top" ? "subject at upper third" : "subject at lower third";
+
+  if (row === "top" && col === "left") return "subject at upper-left third intersection";
+  if (row === "top" && col === "right") return "subject at upper-right third intersection";
+  if (row === "bottom" && col === "left") return "subject at lower-left third intersection";
+  return "subject at lower-right third intersection";
 }
 
 export default function InteractiveMode() {
@@ -27,32 +71,36 @@ export default function InteractiveMode() {
     typeof window !== "undefined" ? window.innerWidth : 1440,
   );
 
-  const [subjectIdx, setSubjectIdx] = useState(0);
-  const subject = SUBJECT_TYPES[subjectIdx];
-
   const [subjectText, setSubjectText] = useState("");
   const [subjectKorean, setSubjectKorean] = useState("");
   const [subjectEnglish, setSubjectEnglish] = useState("");
   const [translating, setTranslating] = useState(false);
   const [translateError, setTranslateError] = useState("");
-  const [promptLang, setPromptLang] = useState("en");
 
-  const [activePreset, setActivePreset] = useState(null);
+  const [promptLang, setPromptLang] = useState("en");
   const [arPresetId, setArPresetId] = useState("ar916");
+  const [activePreset, setActivePreset] = useState(null);
 
   const [phi, setPhi] = useState(65);
   const [theta, setTheta] = useState(0);
   const [r, setR] = useState(0.72);
+  const [subjectPos, setSubjectPos] = useState({ x: 0, y: 0 });
 
+  const [viewerSize, setViewerSize] = useState({ width: 0, height: 0 });
   const [copied, setCopied] = useState(false);
 
+  const viewerRef = useRef(null);
   const mountRef = useRef(null);
   const frameRef = useRef(null);
-  const isDragging = useRef(false);
+
+  const frameAnimRef = useRef(null);
+  const isDraggingCamera = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
+
   const phiRef = useRef(phi);
   const thetaRef = useRef(theta);
   const rRef = useRef(r);
+  const subjectPosRef = useRef(subjectPos);
 
   const isMobile = viewportWidth <= 860;
 
@@ -65,12 +113,28 @@ export default function InteractiveMode() {
   }, []);
 
   useEffect(() => {
-    setSubjectText("");
-    setSubjectKorean("");
-    setSubjectEnglish("");
-    setTranslateError("");
-    setActivePreset(null);
-  }, [subjectIdx]);
+    const el = viewerRef.current;
+    if (!el) return;
+
+    const update = () => {
+      setViewerSize({ width: el.clientWidth, height: el.clientHeight });
+    };
+
+    update();
+
+    let observer;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(update);
+      observer.observe(el);
+    } else {
+      window.addEventListener("resize", update);
+    }
+
+    return () => {
+      if (observer) observer.disconnect();
+      else window.removeEventListener("resize", update);
+    };
+  }, []);
 
   useEffect(() => {
     phiRef.current = phi;
@@ -84,53 +148,45 @@ export default function InteractiveMode() {
     rRef.current = r;
   }, [r]);
 
-  const applyPreset = (preset) => {
-    setActivePreset(preset.id);
+  useEffect(() => {
+    subjectPosRef.current = subjectPos;
+  }, [subjectPos]);
 
-    const startPhi = phi;
-    const startTheta = theta;
-    const startR = r;
+  const selectedAr = AR_PRESETS.find((item) => item.id === arPresetId) || AR_PRESETS[0];
+  const selectedAspectRatio = parseRatio(selectedAr.value);
 
-    const endPhi = preset.phi;
-    const endTheta = preset.theta;
-    const endR = preset.r;
+  const frameRect = useMemo(() => {
+    const safeTop = isMobile ? 76 : 92;
+    const safeBottom = isMobile ? 82 : 98;
+    const safeSide = isMobile ? 16 : 34;
 
-    const duration = 420;
-    const startTime = performance.now();
+    const availableWidth = Math.max(180, (viewerSize.width || 680) - safeSide * 2);
+    const availableHeight = Math.max(180, (viewerSize.height || 420) - safeTop - safeBottom);
 
-    if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    let width = availableWidth;
+    let height = width / selectedAspectRatio;
 
-    const animate = (now) => {
-      const t = Math.min((now - startTime) / duration, 1);
-      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    if (height > availableHeight) {
+      height = availableHeight;
+      width = height * selectedAspectRatio;
+    }
 
-      setPhi(startPhi + (endPhi - startPhi) * ease);
-      setTheta(startTheta + (endTheta - startTheta) * ease);
-      setR(startR + (endR - startR) * ease);
-
-      if (t < 1) frameRef.current = requestAnimationFrame(animate);
+    return {
+      width: Math.round(width),
+      height: Math.round(height),
     };
+  }, [viewerSize, selectedAspectRatio, isMobile]);
 
-    frameRef.current = requestAnimationFrame(animate);
-  };
-
-  const selectedAr = AR_PRESETS.find((item) => item.id === arPresetId);
-  const selectedAspectRatio = useMemo(() => {
-    const ratioValue = selectedAr?.value || "9:16";
-    const [wStr, hStr] = ratioValue.split(":");
-    const w = Number(wStr);
-    const h = Number(hStr);
-    if (!w || !h) return "9 / 16";
-    return `${w} / ${h}`;
-  }, [selectedAr]);
-
-  const resolved = useMemo(() => resolveKeywords(phi, theta, r, subject), [phi, theta, r, subject]);
+  const resolved = useMemo(() => resolveKeywords(phi, theta, r, PERSON_SUBJECT), [phi, theta, r]);
   const isPromptKR = promptLang === "kr";
-  const gazeKr = useMemo(() => getGazeKeyword(subject.id, theta, true), [subject.id, theta]);
-  const gazeEn = useMemo(() => getGazeKeyword(subject.id, theta, false), [subject.id, theta]);
-  const subjectForPrompt = isPromptKR
-    ? (subjectKorean || subjectText.trim())
-    : subjectEnglish;
+
+  const gazeKr = useMemo(() => getGazeKeyword(theta, true), [theta]);
+  const gazeEn = useMemo(() => getGazeKeyword(theta, false), [theta]);
+
+  const compositionKr = useMemo(() => getCompositionKeyword(subjectPos, true), [subjectPos]);
+  const compositionEn = useMemo(() => getCompositionKeyword(subjectPos, false), [subjectPos]);
+
+  const subjectForPrompt = isPromptKR ? (subjectKorean || subjectText.trim()) : subjectEnglish;
 
   const promptValidationError = validatePromptInput({
     promptLang,
@@ -146,14 +202,72 @@ export default function InteractiveMode() {
         height: isPromptKR ? resolved.height.kr : resolved.height.en,
         direction: isPromptKR ? resolved.direction.kr : resolved.direction.en,
         gaze: isPromptKR ? gazeKr : gazeEn,
-        ratioFraming: isPromptKR ? selectedAr?.krFraming : selectedAr?.enFraming,
-        arValue: selectedAr?.value || "",
+        composition: isPromptKR ? compositionKr : compositionEn,
+        ratioFraming: isPromptKR ? selectedAr.krFraming : selectedAr.enFraming,
+        arValue: selectedAr.value,
       }),
-    [subjectForPrompt, isPromptKR, resolved, gazeKr, gazeEn, selectedAr],
+    [subjectForPrompt, isPromptKR, resolved, gazeKr, gazeEn, compositionKr, compositionEn, selectedAr],
   );
 
   const displayPrompt = toPromptText(promptSegments);
   const awkwardWords = isPromptKR ? [] : detectAwkwardExpressions(displayPrompt);
+
+  const applyPreset = (preset) => {
+    setActivePreset(preset.id);
+
+    const startPhi = phi;
+    const startTheta = theta;
+    const startR = r;
+
+    const duration = 420;
+    const startTime = performance.now();
+
+    if (frameAnimRef.current) cancelAnimationFrame(frameAnimRef.current);
+
+    const animate = (now) => {
+      const t = Math.min((now - startTime) / duration, 1);
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+
+      setPhi(startPhi + (preset.phi - startPhi) * ease);
+      setTheta(startTheta + (preset.theta - startTheta) * ease);
+      setR(startR + (preset.r - startR) * ease);
+
+      if (t < 1) frameAnimRef.current = requestAnimationFrame(animate);
+    };
+
+    frameAnimRef.current = requestAnimationFrame(animate);
+  };
+
+  const updateSubjectPositionFromPointer = (clientX, clientY) => {
+    if (!frameRef.current) return;
+    const rect = frameRef.current.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const normalizedX = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const normalizedY = ((clientY - rect.top) / rect.height) * 2 - 1;
+
+    setSubjectPos({
+      x: clamp(normalizedX, -1, 1),
+      y: clamp(normalizedY, -1, 1),
+    });
+  };
+
+  const onFramePointerDown = (event) => {
+    event.preventDefault();
+    updateSubjectPositionFromPointer(event.clientX, event.clientY);
+
+    const onMove = (moveEvent) => {
+      updateSubjectPositionFromPointer(moveEvent.clientX, moveEvent.clientY);
+    };
+
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
 
   const translateSubject = async () => {
     const value = subjectText.trim();
@@ -229,20 +343,6 @@ export default function InteractiveMode() {
   };
 
   useEffect(() => {
-    const el = mountRef.current;
-    if (!el) return;
-
-    const onWheel = (e) => {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.04 : -0.04;
-      setR((prev) => Math.min(1, Math.max(0, prev + delta)));
-    };
-
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
-
-  useEffect(() => {
     let cleanup = () => {};
     let mounted = true;
 
@@ -291,7 +391,7 @@ export default function InteractiveMode() {
       });
       scene.add(new THREE.Mesh(new THREE.SphereGeometry(2.2, 24, 18), innerMat));
 
-      buildSubjectObject(THREE, subject.object, scene);
+      const subjectObject = buildSubjectObject(THREE, PERSON_SUBJECT.object, scene);
 
       const updateCamera = () => {
         const pRad = (phiRef.current * Math.PI) / 180;
@@ -311,6 +411,11 @@ export default function InteractiveMode() {
         camera.lookAt(0, 0, 0);
       };
 
+      const updateSubjectOffset = () => {
+        subjectObject.position.x = subjectPosRef.current.x * 1.1;
+        subjectObject.position.y = -subjectPosRef.current.y * 1.1;
+      };
+
       const onResize = () => {
         if (!mountRef.current) return;
         const w = mountRef.current.clientWidth || 320;
@@ -320,44 +425,55 @@ export default function InteractiveMode() {
         renderer.setSize(w, h);
       };
 
-      const getPos = (e) => {
-        if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        return { x: e.clientX, y: e.clientY };
+      const getPos = (event) => {
+        if (event.touches) return { x: event.touches[0].clientX, y: event.touches[0].clientY };
+        return { x: event.clientX, y: event.clientY };
       };
 
-      const onDown = (e) => {
-        isDragging.current = true;
-        lastMouse.current = getPos(e);
-        e.preventDefault();
+      const onDown = (event) => {
+        if (event.button !== undefined && event.button !== 0) return;
+        isDraggingCamera.current = true;
+        lastMouse.current = getPos(event);
+        event.preventDefault();
       };
 
-      const onMove = (e) => {
-        if (!isDragging.current) return;
-        const pos = getPos(e);
+      const onMove = (event) => {
+        if (!isDraggingCamera.current) return;
+
+        const pos = getPos(event);
         const dx = pos.x - lastMouse.current.x;
         const dy = pos.y - lastMouse.current.y;
         lastMouse.current = pos;
 
         thetaRef.current = ((thetaRef.current + dx * 0.6 + 180) % 360) - 180;
-        phiRef.current = Math.max(1, Math.min(179, phiRef.current + dy * 0.5));
+        phiRef.current = clamp(phiRef.current + dy * 0.5, 1, 179);
 
         setTheta(Math.round(thetaRef.current));
         setPhi(Math.round(phiRef.current));
 
-        e.preventDefault();
+        event.preventDefault();
       };
 
       const onUp = () => {
-        isDragging.current = false;
+        isDraggingCamera.current = false;
+      };
+
+      const onWheel = (event) => {
+        event.preventDefault();
+        const delta = event.deltaY > 0 ? 0.04 : -0.04;
+        setR((prev) => clamp(prev + delta, 0, 1));
       };
 
       const animate = () => {
-        frameRef.current = requestAnimationFrame(animate);
+        frameAnimRef.current = requestAnimationFrame(animate);
+        updateSubjectOffset();
         updateCamera();
         renderer.render(scene, camera);
       };
 
       window.addEventListener("resize", onResize);
+      renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
+      renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefault());
       renderer.domElement.addEventListener("mousedown", onDown);
       renderer.domElement.addEventListener("mousemove", onMove);
       renderer.domElement.addEventListener("mouseup", onUp);
@@ -369,8 +485,9 @@ export default function InteractiveMode() {
       animate();
 
       cleanup = () => {
-        cancelAnimationFrame(frameRef.current);
+        cancelAnimationFrame(frameAnimRef.current);
         window.removeEventListener("resize", onResize);
+        renderer.domElement.removeEventListener("wheel", onWheel);
         renderer.domElement.removeEventListener("mousedown", onDown);
         renderer.domElement.removeEventListener("mousemove", onMove);
         renderer.domElement.removeEventListener("mouseup", onUp);
@@ -400,7 +517,7 @@ export default function InteractiveMode() {
       mounted = false;
       cleanup();
     };
-  }, [subject.object]);
+  }, []);
 
   return (
     <div
@@ -408,32 +525,23 @@ export default function InteractiveMode() {
         display: "flex",
         flexDirection: "column",
         height: "calc(100vh - 130px)",
-        minHeight: 560,
+        minHeight: 580,
         background: "#1a1a1a",
       }}
     >
-      <div style={{ display: "flex", gap: 0, background: "#1a1a1a", borderBottom: "2px solid #f19eb8" }}>
-        {SUBJECT_TYPES.map((item, idx) => (
-          <button
-            key={item.id}
-            onClick={() => setSubjectIdx(idx)}
-            style={{
-              flex: 1,
-              padding: "10px 4px",
-              border: "none",
-              cursor: "pointer",
-              borderRight: idx < SUBJECT_TYPES.length - 1 ? "1px solid #1a1a1a" : "none",
-              background: idx === subjectIdx ? "#f19eb8" : "transparent",
-              color: idx === subjectIdx ? "#1a1a1a" : "#555",
-              fontFamily: "'Arial Black','Helvetica Neue',sans-serif",
-              fontSize: 12,
-              fontWeight: 900,
-            }}
-          >
-            <div style={{ fontSize: 17, marginBottom: 2 }}>{item.icon}</div>
-            <div>{item.kr}</div>
-          </button>
-        ))}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: 56,
+          background: "#f19eb8",
+          borderBottom: "2px solid #1a1a1a",
+        }}
+      >
+        <span style={{ fontSize: 16, fontWeight: 900, color: "#111", fontFamily: "sans-serif" }}>
+          👤 인물 모드 (단일)
+        </span>
       </div>
 
       <div
@@ -465,16 +573,17 @@ export default function InteractiveMode() {
             <input
               type="text"
               value={subjectText}
-              onChange={(e) => {
-                setSubjectText(e.target.value);
-                setSubjectKorean("");
+              onChange={(event) => {
+                const value = event.target.value;
+                setSubjectText(value);
+                setSubjectKorean(value.trim());
                 setSubjectEnglish("");
                 setTranslateError("");
               }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") translateSubject();
+              onKeyDown={(event) => {
+                if (event.key === "Enter") translateSubject();
               }}
-              placeholder={DEFAULT_SUBJECT_PROMPTS[subject.id]}
+              placeholder={DEFAULT_SUBJECT_PROMPTS.person}
               style={{
                 flex: 1,
                 minWidth: isMobile ? "100%" : 0,
@@ -544,12 +653,8 @@ export default function InteractiveMode() {
               }}
             >
               <div style={{ color: "#7cc78f", fontWeight: 700, marginBottom: 2 }}>입력 요약</div>
-              {subjectKorean ? (
-                <div style={{ color: "#b8ffd1", fontFamily: "sans-serif" }}>KR: {subjectKorean}</div>
-              ) : null}
-              {subjectEnglish ? (
-                <div style={{ color: "#88ffaa", fontFamily: "monospace" }}>EN: {subjectEnglish}</div>
-              ) : null}
+              {subjectKorean ? <div style={{ color: "#b8ffd1" }}>KR: {subjectKorean}</div> : null}
+              {subjectEnglish ? <div style={{ color: "#88ffaa", fontFamily: "monospace" }}>EN: {subjectEnglish}</div> : null}
             </div>
           ) : null}
 
@@ -583,8 +688,9 @@ export default function InteractiveMode() {
           ✦ RATIO
         </span>
         <span style={{ fontSize: 11, color: "#777", fontFamily: "sans-serif", marginRight: 4 }}>
-          {isPromptKR ? "비율 프레임 미리보기" : "ratio frame preview"}
+          {isPromptKR ? "비율 프레임 + 피사체 위치 드래그" : "ratio frame + subject drag"}
         </span>
+
         {AR_PRESETS.map((preset) => {
           const isOn = arPresetId === preset.id;
           return (
@@ -610,34 +716,15 @@ export default function InteractiveMode() {
       </div>
 
       <div
+        ref={viewerRef}
         style={{
           flex: 1,
-          minHeight: isMobile ? 300 : 420,
+          minHeight: isMobile ? 320 : 460,
           position: "relative",
           overflow: "hidden",
         }}
       >
         <div ref={mountRef} style={{ width: "100%", height: "100%", cursor: "grab" }} />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "grid",
-            placeItems: "center",
-            pointerEvents: "none",
-          }}
-        >
-          <div
-            style={{
-              width: "min(82%, 560px)",
-              maxHeight: "78%",
-              aspectRatio: selectedAspectRatio,
-              border: "1px dashed rgba(241,158,184,0.8)",
-              borderRadius: 8,
-              boxShadow: "0 0 0 1px rgba(0,0,0,0.4) inset",
-            }}
-          />
-        </div>
 
         <div
           style={{
@@ -653,7 +740,7 @@ export default function InteractiveMode() {
             pointerEvents: "none",
           }}
         >
-          드래그로 앵글 조정 · 휠로 거리 조정
+          드래그로 카메라 조정 · 휠로 거리 조정
         </div>
 
         <div
@@ -706,6 +793,70 @@ export default function InteractiveMode() {
         <div
           style={{
             position: "absolute",
+            inset: 0,
+            display: "grid",
+            placeItems: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            ref={frameRef}
+            onPointerDown={onFramePointerDown}
+            style={{
+              width: `${frameRect.width}px`,
+              height: `${frameRect.height}px`,
+              border: "1px dashed rgba(241,158,184,0.86)",
+              borderRadius: 8,
+              boxShadow: "0 0 0 1px rgba(0,0,0,0.35) inset",
+              pointerEvents: "auto",
+              position: "relative",
+              touchAction: "none",
+              cursor: "crosshair",
+              background: "rgba(12,12,18,0.06)",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                left: `${((subjectPos.x + 1) / 2) * 100}%`,
+                top: `${((subjectPos.y + 1) / 2) * 100}%`,
+                transform: "translate(-50%, -50%)",
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                border: "2px solid #f19eb8",
+                background: "rgba(241,158,184,0.2)",
+                boxShadow: "0 0 12px rgba(241,158,184,0.55)",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                transform: "translate(-50%, -50%)",
+                width: 1,
+                height: "100%",
+                background: "rgba(241,158,184,0.25)",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "100%",
+                height: 1,
+                background: "rgba(241,158,184,0.25)",
+              }}
+            />
+          </div>
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
             right: isMobile ? 8 : 12,
             top: "50%",
             transform: "translateY(-50%)",
@@ -721,7 +872,7 @@ export default function InteractiveMode() {
             min="0"
             max="100"
             value={Math.round((1 - r) * 100)}
-            onChange={(e) => setR(1 - e.target.value / 100)}
+            onChange={(event) => setR(1 - event.target.value / 100)}
             style={{
               writingMode: "vertical-lr",
               direction: "rtl",
@@ -744,13 +895,14 @@ export default function InteractiveMode() {
             display: "flex",
             gap: 6,
             flexWrap: "wrap",
-            maxWidth: isMobile ? "calc(100% - 28px)" : 420,
+            maxWidth: isMobile ? "calc(100% - 28px)" : 580,
           }}
         >
           {[
             { label: "SHOT", value: isPromptKR ? resolved.shot.kr : resolved.shot.en },
             { label: "ANGLE", value: isPromptKR ? resolved.height.kr : resolved.height.en },
             { label: "DIRECTION", value: isPromptKR ? resolved.direction.kr : resolved.direction.en },
+            { label: "POSITION", value: isPromptKR ? compositionKr : compositionEn },
           ].map((item) => (
             <div
               key={item.label}
@@ -795,6 +947,7 @@ export default function InteractiveMode() {
           >
             PROMPT
           </span>
+
           <div style={{ display: "flex", gap: 4 }}>
             <button
               onClick={() => setPromptLang("kr")}
@@ -831,7 +984,7 @@ export default function InteractiveMode() {
           </div>
         </div>
 
-        <div style={{ flex: 1, minWidth: 200, fontFamily: "monospace", lineHeight: 1.7 }}>
+        <div style={{ flex: 1, minWidth: 220, fontFamily: "monospace", lineHeight: 1.7 }}>
           {promptSegments.length ? (
             <>
               {promptSegments
@@ -858,7 +1011,7 @@ export default function InteractiveMode() {
             </>
           ) : (
             <span style={{ color: "#666", fontSize: 13, fontFamily: "sans-serif" }}>
-              주체를 입력하고 번역하면 프롬프트가 생성됩니다. (KR/EN 토글 가능)
+              주체를 입력하고 번역하면 프롬프트가 생성됩니다.
             </span>
           )}
 
