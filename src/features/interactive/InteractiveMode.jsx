@@ -783,24 +783,6 @@ export default function InteractiveMode() {
             </button>
           </div>
 
-          {(subjectKorean || subjectEnglish) ? (
-            <div
-              style={{
-                background: "#0d2a1a",
-                border: "1px solid #1a5a2a",
-                borderRadius: 6,
-                padding: "5px 10px",
-                fontSize: 12,
-                color: "#88ffaa",
-                fontFamily: "sans-serif",
-              }}
-            >
-              <div style={{ color: "#7cc78f", fontWeight: 700, marginBottom: 2 }}>입력 요약</div>
-              {subjectKorean ? <div style={{ color: "#b8ffd1" }}>KR: {subjectKorean}</div> : null}
-              {subjectEnglish ? <div style={{ color: "#88ffaa", fontFamily: "monospace" }}>EN: {subjectEnglish}</div> : null}
-            </div>
-          ) : null}
-
           {translateError ? (
             <div style={{ fontSize: 12, color: "#ff9ab6", fontFamily: "sans-serif" }}>{translateError}</div>
           ) : null}
