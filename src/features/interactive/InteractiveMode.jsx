@@ -23,6 +23,16 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function withAlpha(hexColor, alpha) {
+  const raw = String(hexColor || "").replace("#", "");
+  if (raw.length !== 6) return `rgba(255,255,255,${alpha})`;
+
+  const r = Number.parseInt(raw.slice(0, 2), 16);
+  const g = Number.parseInt(raw.slice(2, 4), 16);
+  const b = Number.parseInt(raw.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function parseRatio(value) {
   const [w, h] = String(value || "9:16").split(":").map(Number);
   if (!w || !h) return 9 / 16;
@@ -111,6 +121,7 @@ export default function InteractiveMode() {
   const [phi, setPhi] = useState(65);
   const [theta, setTheta] = useState(0);
   const [r, setR] = useState(0.72);
+  const [lightPower, setLightPower] = useState(56);
   const [subjectPos, setSubjectPos] = useState({ x: 0, y: 0 });
   const [gazeVector, setGazeVector] = useState({ x: 0, y: 0 });
 
@@ -123,6 +134,7 @@ export default function InteractiveMode() {
   const viewerRef = useRef(null);
   const mountRef = useRef(null);
   const frameRef = useRef(null);
+  const libraryRef = useRef(null);
 
   const frameAnimRef = useRef(null);
   const isDraggingCamera = useRef(false);
@@ -131,6 +143,7 @@ export default function InteractiveMode() {
   const phiRef = useRef(phi);
   const thetaRef = useRef(theta);
   const rRef = useRef(r);
+  const lightPowerRef = useRef(lightPower);
   const subjectPosRef = useRef(subjectPos);
   const gazeVectorRef = useRef(gazeVector);
 
@@ -184,6 +197,10 @@ export default function InteractiveMode() {
   useEffect(() => {
     rRef.current = r;
   }, [r]);
+
+  useEffect(() => {
+    lightPowerRef.current = lightPower;
+  }, [lightPower]);
 
   useEffect(() => {
     subjectPosRef.current = subjectPos;
@@ -505,7 +522,8 @@ export default function InteractiveMode() {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       mountRef.current.appendChild(renderer.domElement);
 
-      scene.add(new THREE.AmbientLight(0x334466, 1.0));
+      const ambient = new THREE.AmbientLight(0x334466, 1.0);
+      scene.add(ambient);
       const key = new THREE.DirectionalLight(0xffffff, 1.2);
       key.position.set(3, 5, 4);
       scene.add(key);
@@ -600,12 +618,16 @@ export default function InteractiveMode() {
 
       const onWheel = (event) => {
         event.preventDefault();
-        const delta = event.deltaY > 0 ? 0.04 : -0.04;
+        const delta = event.deltaY > 0 ? -0.04 : 0.04;
         setR((prev) => clamp(prev + delta, 0, 1));
       };
 
       const animate = () => {
         frameAnimRef.current = requestAnimationFrame(animate);
+        const p = lightPowerRef.current / 100;
+        ambient.intensity = 0.35 + p * 1.2;
+        key.intensity = 0.55 + p * 1.45;
+        rim.intensity = 0.2 + p * 0.9;
         updateSubjectOffset();
         updateCamera();
         renderer.render(scene, camera);
@@ -675,6 +697,7 @@ export default function InteractiveMode() {
         height: "calc(100vh - 130px)",
         minHeight: 580,
         background: "#1a1a1a",
+        overflowY: "auto",
       }}
     >
       <div
@@ -867,7 +890,7 @@ export default function InteractiveMode() {
         ref={viewerRef}
         style={{
           flex: 1,
-          minHeight: isMobile ? 320 : 460,
+          minHeight: isMobile ? 300 : 360,
           position: "relative",
           overflow: "hidden",
         }}
@@ -888,7 +911,7 @@ export default function InteractiveMode() {
             pointerEvents: "none",
           }}
         >
-          드래그로 카메라 조정 · 휠로 거리 조정
+          드래그로 카메라 조정 · 휠로 거리 조정 · 우측 슬라이더로 광원 조절
         </div>
 
         <div
@@ -1090,30 +1113,54 @@ export default function InteractiveMode() {
             top: "50%",
             transform: "translateY(-50%)",
             display: "flex",
-            flexDirection: "column",
+            flexDirection: "row",
             alignItems: "center",
-            gap: 6,
+            gap: 10,
           }}
         >
-          <span style={{ fontSize: 9, color: "#f19eb8", fontFamily: "sans-serif", fontWeight: 700 }}>멀리</span>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={Math.round((1 - r) * 100)}
-            onChange={(event) => setR(1 - event.target.value / 100)}
-            style={{
-              writingMode: "vertical-lr",
-              direction: "rtl",
-              width: 20,
-              height: 120,
-              cursor: "pointer",
-              accentColor: "#f19eb8",
-            }}
-          />
-          <span style={{ fontSize: 9, color: "#f19eb8", fontFamily: "sans-serif", fontWeight: 700 }}>
-            {Math.round(r * 100)}%
-          </span>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 9, color: "#f19eb8", fontFamily: "sans-serif", fontWeight: 700 }}>멀리</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={Math.round((1 - r) * 100)}
+              onChange={(event) => setR(1 - event.target.value / 100)}
+              style={{
+                writingMode: "vertical-lr",
+                direction: "rtl",
+                width: 20,
+                height: 140,
+                cursor: "pointer",
+                accentColor: "#f19eb8",
+              }}
+            />
+            <span style={{ fontSize: 9, color: "#f19eb8", fontFamily: "sans-serif", fontWeight: 700 }}>
+              {Math.round(r * 100)}%
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 9, color: "#ffd166", fontFamily: "sans-serif", fontWeight: 700 }}>밝게</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={lightPower}
+              onChange={(event) => setLightPower(Number(event.target.value))}
+              style={{
+                writingMode: "vertical-lr",
+                direction: "rtl",
+                width: 20,
+                height: 140,
+                cursor: "pointer",
+                accentColor: "#ffd166",
+              }}
+            />
+            <span style={{ fontSize: 9, color: "#ffd166", fontFamily: "sans-serif", fontWeight: 700 }}>
+              {lightPower}%
+            </span>
+          </div>
         </div>
 
         <div
@@ -1124,44 +1171,54 @@ export default function InteractiveMode() {
             display: "flex",
             gap: 6,
             flexWrap: "wrap",
-            maxWidth: isMobile ? "calc(100% - 28px)" : 580,
+            maxWidth: isMobile ? "calc(100% - 112px)" : 640,
           }}
         >
           {[
-            { label: "SHOT", value: isPromptKR ? resolved.shot.kr : resolved.shot.en },
-            { label: "ANGLE", value: isPromptKR ? resolved.height.kr : resolved.height.en },
-            { label: "DIRECTION", value: isPromptKR ? resolved.direction.kr : resolved.direction.en },
-            { label: "POSITION", value: isPromptKR ? compositionKr : compositionEn },
-          ].map((item) => (
+            { label: "SHOT", type: "shot", value: isPromptKR ? resolved.shot.kr : resolved.shot.en },
+            { label: "ANGLE", type: "angle", value: isPromptKR ? resolved.height.kr : resolved.height.en },
+            { label: "DIRECTION", type: "angle", value: isPromptKR ? resolved.direction.kr : resolved.direction.en },
+            { label: "POSITION", type: "composition", value: isPromptKR ? compositionKr : compositionEn },
+          ].map((item) => {
+            const color = SEGMENT_COLORS[item.type] || "#5ce8ff";
+            return (
             <div
               key={item.label}
               style={{
-                background: "rgba(8,18,34,0.82)",
-                border: "1px solid rgba(92,232,255,0.28)",
+                background: withAlpha(color, 0.08),
+                border: `1px solid ${withAlpha(color, 0.5)}`,
                 borderRadius: 8,
                 padding: "6px 8px",
               }}
             >
-              <div style={{ fontSize: 9, color: "#5ce8ff", fontFamily: "sans-serif", letterSpacing: "0.08em" }}>
+              <div style={{ fontSize: 9, color, fontFamily: "sans-serif", letterSpacing: "0.08em" }}>
                 {item.label}
               </div>
-              <div style={{ fontSize: 12, color: "#e0ddd4", fontFamily: "sans-serif", fontWeight: 700 }}>
+              <div style={{ fontSize: 12, color, fontFamily: "sans-serif", fontWeight: 700 }}>
                 {item.value}
               </div>
             </div>
-          ))}
+            );
+          })}
           <div
             style={{
-              background: "rgba(8,18,34,0.82)",
-              border: "1px solid rgba(92,232,255,0.28)",
+              background: withAlpha(SEGMENT_COLORS.angle, 0.08),
+              border: `1px solid ${withAlpha(SEGMENT_COLORS.angle, 0.5)}`,
               borderRadius: 8,
               padding: "6px 8px",
             }}
           >
-            <div style={{ fontSize: 9, color: "#5ce8ff", fontFamily: "sans-serif", letterSpacing: "0.08em" }}>
+            <div
+              style={{
+                fontSize: 9,
+                color: SEGMENT_COLORS.angle,
+                fontFamily: "sans-serif",
+                letterSpacing: "0.08em",
+              }}
+            >
               GAZE
             </div>
-            <div style={{ fontSize: 12, color: "#e0ddd4", fontFamily: "sans-serif", fontWeight: 700 }}>
+            <div style={{ fontSize: 12, color: SEGMENT_COLORS.angle, fontFamily: "sans-serif", fontWeight: 700 }}>
               {isPromptKR ? gazeKr : gazeEn}
             </div>
           </div>
@@ -1273,6 +1330,25 @@ export default function InteractiveMode() {
         </div>
 
         <button
+          type="button"
+          onClick={() => libraryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          style={{
+            background: "transparent",
+            color: "#88a8b5",
+            border: "1px solid #2b3f48",
+            borderRadius: 8,
+            padding: "10px 12px",
+            cursor: "pointer",
+            fontFamily: "sans-serif",
+            fontSize: 12,
+            fontWeight: 700,
+            whiteSpace: "nowrap",
+          }}
+        >
+          프리셋/히스토리
+        </button>
+
+        <button
           onClick={copyPrompt}
           disabled={!displayPrompt || Boolean(promptValidationError)}
           style={{
@@ -1294,6 +1370,7 @@ export default function InteractiveMode() {
       </div>
 
       <div
+        ref={libraryRef}
         style={{
           background: "#0d0d0d",
           borderTop: "1px solid #222",
