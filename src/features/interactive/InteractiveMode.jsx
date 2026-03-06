@@ -525,7 +525,10 @@ export default function InteractiveMode() {
       el.focus();
       el.select();
       try {
-        document.execCommand("copy");
+        const copiedByCommand = document.execCommand("copy");
+        if (!copiedByCommand) {
+          throw new Error("copy_command_failed");
+        }
         const nextHistory = savePromptHistory({
           text: displayPrompt,
           lang: promptLang,
