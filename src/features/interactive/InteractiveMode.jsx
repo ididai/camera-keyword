@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildSubjectObject } from "./buildSubjectObject";
 import { resolveKeywords } from "./keywordResolver";
-import { ANGLE_PRESETS, AR_PRESETS, DEFAULT_SUBJECT_PROMPTS, SUBJECT_TYPES } from "./cameraGlossary";
+import { AR_PRESETS, DEFAULT_SUBJECT_PROMPTS, SUBJECT_TYPES } from "./cameraGlossary";
 import {
   SEGMENT_COLORS,
   buildPromptSegments,
@@ -116,7 +116,6 @@ export default function InteractiveMode() {
 
   const [promptLang, setPromptLang] = useState("en");
   const [arPresetId, setArPresetId] = useState("ar916");
-  const [activePreset, setActivePreset] = useState(null);
 
   const [phi, setPhi] = useState(65);
   const [theta, setTheta] = useState(0);
@@ -269,32 +268,6 @@ export default function InteractiveMode() {
 
   const displayPrompt = toPromptText(promptSegments);
   const awkwardWords = isPromptKR ? [] : detectAwkwardExpressions(displayPrompt);
-
-  const applyPreset = (preset) => {
-    setActivePreset(preset.id);
-
-    const startPhi = phi;
-    const startTheta = theta;
-    const startR = r;
-
-    const duration = 420;
-    const startTime = performance.now();
-
-    if (frameAnimRef.current) cancelAnimationFrame(frameAnimRef.current);
-
-    const animate = (now) => {
-      const t = Math.min((now - startTime) / duration, 1);
-      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-
-      setPhi(startPhi + (preset.phi - startPhi) * ease);
-      setTheta(startTheta + (preset.theta - startTheta) * ease);
-      setR(startR + (preset.r - startR) * ease);
-
-      if (t < 1) frameAnimRef.current = requestAnimationFrame(animate);
-    };
-
-    frameAnimRef.current = requestAnimationFrame(animate);
-  };
 
   const updateSubjectPositionFromPointer = (clientX, clientY) => {
     if (!frameRef.current) return;
@@ -489,7 +462,6 @@ export default function InteractiveMode() {
     setSubjectPos(preset.subjectPos || { x: 0, y: 0 });
     setGazeVector(preset.gazeVector || { x: 0, y: 0 });
     setArPresetId(preset.arPresetId || "ar916");
-    setActivePreset(null);
   };
 
   const handleRenamePreset = (preset) => {
@@ -912,53 +884,6 @@ export default function InteractiveMode() {
           }}
         >
           드래그로 카메라 조정 · 휠로 거리 조정 · 우측 슬라이더로 광원 조절
-        </div>
-
-        <div
-          style={{
-            position: "absolute",
-            top: 36,
-            left: "50%",
-            transform: "translateX(-50%)",
-            display: "flex",
-            gap: 4,
-            zIndex: 10,
-            flexWrap: "wrap",
-            justifyContent: "center",
-            maxWidth: "94%",
-          }}
-        >
-          {ANGLE_PRESETS.map((preset) => {
-            const isActive = activePreset === preset.id;
-            return (
-              <button
-                key={preset.id}
-                onClick={() => applyPreset(preset)}
-                style={{
-                  background: isActive ? "#f19eb8" : "rgba(10,12,26,0.72)",
-                  border: `1px solid ${isActive ? "#f19eb8" : "rgba(255,255,255,0.10)"}`,
-                  borderRadius: 14,
-                  padding: "3px 9px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <span style={{ fontSize: 12 }}>{preset.icon}</span>
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: isActive ? 800 : 500,
-                    fontFamily: "sans-serif",
-                    color: isActive ? "#1a1a1a" : "rgba(255,255,255,0.55)",
-                  }}
-                >
-                  {preset.label}
-                </span>
-              </button>
-            );
-          })}
         </div>
 
         <div
