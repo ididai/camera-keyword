@@ -689,11 +689,23 @@ export default function InteractiveMode() {
 
       <div
         style={{
+          width: "100%",
+          maxWidth: isMobile ? "100%" : 1360,
+          margin: "0 auto",
           display: "flex",
+          flexDirection: "column",
+          padding: isMobile ? "0 0 10px" : "0 14px 14px",
+          gap: 0,
+        }}
+      >
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
           alignItems: "center",
-          gap: 10,
-          flexWrap: isMobile ? "wrap" : "nowrap",
-          padding: "10px 16px",
+          gap: 8,
+          padding: "12px 16px",
           background: "#1a1a1a",
           borderBottom: "1px solid #1a2a4a",
         }}
@@ -711,8 +723,8 @@ export default function InteractiveMode() {
           SUBJECT
         </span>
 
-        <div style={{ flex: 1, minWidth: isMobile ? "100%" : 0, display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ display: "flex", gap: 6, flexWrap: isMobile ? "wrap" : "nowrap" }}>
+        <div style={{ width: "100%", maxWidth: isMobile ? "100%" : 760, display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 6, flexWrap: isMobile ? "wrap" : "nowrap" }}>
             <input
               type="text"
               value={subjectText}
@@ -728,8 +740,9 @@ export default function InteractiveMode() {
               }}
               placeholder={DEFAULT_SUBJECT_PROMPTS.person}
               style={{
-                flex: 1,
-                minWidth: isMobile ? "100%" : 0,
+                flex: isMobile ? "1 1 100%" : "0 0 440px",
+                width: isMobile ? "100%" : 440,
+                maxWidth: "100%",
                 background: "#252525",
                 border: "1px solid #2a3a6a",
                 borderRadius: 8,
@@ -784,7 +797,7 @@ export default function InteractiveMode() {
           </div>
 
           {translateError ? (
-            <div style={{ fontSize: 12, color: "#ff9ab6", fontFamily: "sans-serif" }}>{translateError}</div>
+            <div style={{ textAlign: "center", fontSize: 12, color: "#ff9ab6", fontFamily: "sans-serif" }}>{translateError}</div>
           ) : null}
         </div>
       </div>
@@ -1507,6 +1520,7 @@ export default function InteractiveMode() {
             저장된 프롬프트 히스토리가 없습니다.
           </div>
         )}
+      </div>
       </div>
     </div>
   );
