@@ -159,6 +159,8 @@ export default function InteractiveMode() {
   const [translateError, setTranslateError] = useState("");
 
   const [promptLang, setPromptLang] = useState("en");
+  const [includeAngleInPrompt, setIncludeAngleInPrompt] = useState(true);
+  const [includeLightingInPrompt, setIncludeLightingInPrompt] = useState(true);
   const [arPresetId, setArPresetId] = useState("ar916");
 
   const [phi, setPhi] = useState(65);
@@ -346,8 +348,22 @@ export default function InteractiveMode() {
         composition: isPromptKR ? compositionKr : compositionEn,
         ratioFraming: isPromptKR ? selectedAr.krFraming : selectedAr.enFraming,
         arValue: selectedAr.value,
+        includeAngle: includeAngleInPrompt,
+        includeLighting: includeLightingInPrompt,
       }),
-    [subjectForPrompt, isPromptKR, resolved, gazeKr, gazeEn, lightingKeyword, compositionKr, compositionEn, selectedAr],
+    [
+      subjectForPrompt,
+      isPromptKR,
+      resolved,
+      gazeKr,
+      gazeEn,
+      lightingKeyword,
+      compositionKr,
+      compositionEn,
+      selectedAr,
+      includeAngleInPrompt,
+      includeLightingInPrompt,
+    ],
   );
 
   const displayPrompt = toPromptText(promptSegments);
@@ -656,6 +672,22 @@ export default function InteractiveMode() {
     if (!nextLang || nextLang === promptLang) return;
     setPromptLang(nextLang);
     trackEvent("prompt_language_changed", { lang: nextLang });
+  };
+
+  const handleToggleAngleInPrompt = () => {
+    setIncludeAngleInPrompt((prev) => {
+      const next = !prev;
+      trackEvent("prompt_angle_toggle_changed", { enabled: next });
+      return next;
+    });
+  };
+
+  const handleToggleLightingInPrompt = () => {
+    setIncludeLightingInPrompt((prev) => {
+      const next = !prev;
+      trackEvent("prompt_lighting_toggle_changed", { enabled: next });
+      return next;
+    });
   };
 
   const handleAspectRatioChange = (nextPresetId) => {
@@ -1323,18 +1355,28 @@ export default function InteractiveMode() {
         >
           {[
             { label: "SHOT", type: "shot", value: isPromptKR ? resolved.shot.kr : resolved.shot.en },
-            { label: "ANGLE", type: "angle", value: isPromptKR ? resolved.height.kr : resolved.height.en },
-            { label: "DIRECTION", type: "angle", value: isPromptKR ? resolved.direction.kr : resolved.direction.en },
-            { label: "LIGHT", type: "lighting", value: lightingChipLabel },
+            {
+              label: "ANGLE",
+              type: "angle",
+              value: isPromptKR ? resolved.height.kr : resolved.height.en,
+              disabled: !includeAngleInPrompt,
+            },
+            {
+              label: "DIRECTION",
+              type: "angle",
+              value: isPromptKR ? resolved.direction.kr : resolved.direction.en,
+              disabled: !includeAngleInPrompt,
+            },
+            { label: "LIGHT", type: "lighting", value: lightingChipLabel, disabled: !includeLightingInPrompt },
             { label: "POSITION", type: "composition", value: isPromptKR ? compositionKr : compositionEn },
           ].map((item) => {
-            const color = SEGMENT_COLORS[item.type] || "#5ce8ff";
+            const color = item.disabled ? "#6f7787" : SEGMENT_COLORS[item.type] || "#5ce8ff";
             return (
             <div
               key={item.label}
               style={{
-                background: withAlpha(color, 0.08),
-                border: `1px solid ${withAlpha(color, 0.5)}`,
+                background: withAlpha(color, item.disabled ? 0.05 : 0.08),
+                border: `1px solid ${withAlpha(color, item.disabled ? 0.36 : 0.5)}`,
                 borderRadius: 8,
                 padding: "6px 8px",
               }}
@@ -1345,13 +1387,24 @@ export default function InteractiveMode() {
               <div style={{ fontSize: 12, color, fontFamily: "sans-serif", fontWeight: 700 }}>
                 {item.value}
               </div>
+              {item.disabled ? (
+                <div style={{ fontSize: 9, color: "#8a94a7", fontFamily: "sans-serif", marginTop: 2 }}>
+                  {isPromptKR ? "프롬프트 제외" : "excluded"}
+                </div>
+              ) : null}
             </div>
             );
           })}
           <div
             style={{
-              background: withAlpha(SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle, 0.08),
-              border: `1px solid ${withAlpha(SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle, 0.5)}`,
+              background: withAlpha(
+                includeAngleInPrompt ? SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle : "#6f7787",
+                includeAngleInPrompt ? 0.08 : 0.05,
+              ),
+              border: `1px solid ${withAlpha(
+                includeAngleInPrompt ? SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle : "#6f7787",
+                includeAngleInPrompt ? 0.5 : 0.36,
+              )}`,
               borderRadius: 8,
               padding: "6px 8px",
             }}
@@ -1359,7 +1412,7 @@ export default function InteractiveMode() {
             <div
               style={{
                 fontSize: 9,
-                color: SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle,
+                color: includeAngleInPrompt ? SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle : "#6f7787",
                 fontFamily: "sans-serif",
                 letterSpacing: "0.08em",
               }}
@@ -1369,13 +1422,18 @@ export default function InteractiveMode() {
             <div
               style={{
                 fontSize: 12,
-                color: SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle,
+                color: includeAngleInPrompt ? SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle : "#6f7787",
                 fontFamily: "sans-serif",
                 fontWeight: 700,
               }}
             >
               {isPromptKR ? gazeKr : gazeEn}
             </div>
+            {!includeAngleInPrompt ? (
+              <div style={{ fontSize: 9, color: "#8a94a7", fontFamily: "sans-serif", marginTop: 2 }}>
+                {isPromptKR ? "프롬프트 제외" : "excluded"}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -1436,6 +1494,41 @@ export default function InteractiveMode() {
               }}
             >
               EN
+            </button>
+          </div>
+
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            <button
+              onClick={handleToggleAngleInPrompt}
+              style={{
+                background: includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.angle, 0.22) : "transparent",
+                color: includeAngleInPrompt ? SEGMENT_COLORS.angle : "#7a8394",
+                border: `1px solid ${includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.angle, 0.88) : "#364054"}`,
+                borderRadius: 4,
+                padding: "2px 6px",
+                cursor: "pointer",
+                fontSize: 10,
+                fontFamily: "sans-serif",
+                fontWeight: 700,
+              }}
+            >
+              {includeAngleInPrompt ? "ANGLE ON" : "ANGLE OFF"}
+            </button>
+            <button
+              onClick={handleToggleLightingInPrompt}
+              style={{
+                background: includeLightingInPrompt ? withAlpha(SEGMENT_COLORS.lighting, 0.22) : "transparent",
+                color: includeLightingInPrompt ? SEGMENT_COLORS.lighting : "#7a8394",
+                border: `1px solid ${includeLightingInPrompt ? withAlpha(SEGMENT_COLORS.lighting, 0.88) : "#364054"}`,
+                borderRadius: 4,
+                padding: "2px 6px",
+                cursor: "pointer",
+                fontSize: 10,
+                fontFamily: "sans-serif",
+                fontWeight: 700,
+              }}
+            >
+              {includeLightingInPrompt ? "LIGHT ON" : "LIGHT OFF"}
             </button>
           </div>
         </div>

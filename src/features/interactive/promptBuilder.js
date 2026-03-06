@@ -43,23 +43,35 @@ export function buildPromptSegments({
   composition,
   ratioFraming,
   arValue,
+  includeAngle = true,
+  includeLighting = true,
 }) {
   const subject = normalizeSubjectInput(subjectText);
-  const baseSegments = [
-    { type: "subject", text: subject },
-    { type: "shot", text: shot },
-    { type: "angle", text: height },
-    { type: "angle", text: direction },
-    { type: "angle", text: gaze },
-    { type: "lighting", text: lighting },
-    { type: "composition", text: composition },
-    { type: "framing", text: ratioFraming },
-  ].map((segment) => ({ ...segment, text: normalizeCameraTerm(segment.text) }));
+  const baseSegments = [{ type: "subject", text: subject }, { type: "shot", text: shot }];
+
+  if (includeAngle) {
+    baseSegments.push(
+      { type: "angle", text: height },
+      { type: "angle", text: direction },
+      { type: "angle", text: gaze },
+    );
+  }
+
+  if (includeLighting) {
+    baseSegments.push({ type: "lighting", text: lighting });
+  }
+
+  baseSegments.push({ type: "composition", text: composition }, { type: "framing", text: ratioFraming });
+
+  const normalizedSegments = baseSegments.map((segment) => ({
+    ...segment,
+    text: normalizeCameraTerm(segment.text),
+  }));
 
   // 타입은 유지한 채 중복 텍스트만 제거
   const seen = new Set();
   const dedupedByType = [];
-  for (const segment of baseSegments) {
+  for (const segment of normalizedSegments) {
     if (!segment.text) continue;
     const key = segment.text.toLowerCase();
     if (seen.has(key)) continue;
