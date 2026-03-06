@@ -2,7 +2,6 @@ import {
   hasKorean,
   normalizeCameraTerm,
   normalizeSubjectInput,
-  normalizeToken,
 } from "./promptNormalizer";
 
 export const SEGMENT_COLORS = {
@@ -10,13 +9,13 @@ export const SEGMENT_COLORS = {
   shot: "#5b8cff",
   angle: "#ff6b6b",
   gaze: "#2ec4b6",
-  lighting: "#ff9f1c",
   composition: "#9d4edd",
+  custom: "#ffb703",
   framing: "#70e000",
   ratio: "#00c2ff",
 };
 
-export const DEFAULT_PROMPT_ORDER = ["subject", "shot", "angle", "lighting", "composition", "framing"];
+export const DEFAULT_PROMPT_ORDER = ["subject", "shot", "angle", "composition", "custom", "framing"];
 
 export function validatePromptInput({ promptLang, subjectKorean, subjectEnglish }) {
   const kr = normalizeSubjectInput(subjectKorean);
@@ -39,12 +38,11 @@ export function buildPromptSegments({
   height,
   direction,
   gaze,
-  lighting,
   composition,
+  custom,
   ratioFraming,
   arValue,
   includeAngle = true,
-  includeLighting = true,
 }) {
   const subject = normalizeSubjectInput(subjectText);
   const baseSegments = [{ type: "subject", text: subject }, { type: "shot", text: shot }];
@@ -57,8 +55,8 @@ export function buildPromptSegments({
     );
   }
 
-  if (includeLighting) {
-    baseSegments.push({ type: "lighting", text: lighting });
+  if (custom) {
+    baseSegments.push({ type: "custom", text: custom });
   }
 
   baseSegments.push({ type: "composition", text: composition }, { type: "framing", text: ratioFraming });

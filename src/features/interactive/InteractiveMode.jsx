@@ -104,49 +104,6 @@ function getCompositionKeyword(position, isKorean) {
   return "subject at lower-right third intersection";
 }
 
-function getLightingProfile(power) {
-  const p = clamp(power ?? 56, 0, 100);
-
-  if (p < 20) {
-    return {
-      kr: "로우키 조명, 단일 키 라이트, 네거티브 필, 깊은 그림자, 강한 명암 대비",
-      en: "cinematic low-key lighting, single key light, negative fill, deep shadows, high contrast",
-      shortKr: "로우키(강한 명암)",
-      shortEn: "low-key dramatic",
-    };
-  }
-  if (p < 40) {
-    return {
-      kr: "로우키 무드 조명, 제한된 필 라이트, 드라마틱 쉐도우 폴오프",
-      en: "moody low-key lighting, restrained fill light, dramatic shadow falloff",
-      shortKr: "무디 로우키",
-      shortEn: "moody low-key",
-    };
-  }
-  if (p < 60) {
-    return {
-      kr: "균형 잡힌 삼점 조명, 중성 노출, 자연스러운 명암",
-      en: "balanced three-point lighting, neutral exposure, natural contrast",
-      shortKr: "밸런스 조명",
-      shortEn: "balanced lighting",
-    };
-  }
-  if (p < 80) {
-    return {
-      kr: "하이키 소프트 조명, 넓은 필 라이트, 부드러운 그림자",
-      en: "high-key soft lighting, broad fill light, gentle shadows",
-      shortKr: "소프트 하이키",
-      shortEn: "soft high-key",
-    };
-  }
-  return {
-    kr: "밝은 하이키 스튜디오 조명, 소프트박스 확산광, 최소 그림자, 공기감 있는 노출",
-    en: "bright high-key studio lighting, softbox diffusion, minimal shadows, airy exposure",
-    shortKr: "밝은 하이키",
-    shortEn: "bright high-key",
-  };
-}
-
 export default function InteractiveMode() {
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1440,
@@ -160,13 +117,12 @@ export default function InteractiveMode() {
 
   const [promptLang, setPromptLang] = useState("en");
   const [includeAngleInPrompt, setIncludeAngleInPrompt] = useState(true);
-  const [includeLightingInPrompt, setIncludeLightingInPrompt] = useState(true);
+  const [customPromptHint, setCustomPromptHint] = useState("");
   const [arPresetId, setArPresetId] = useState("ar916");
 
   const [phi, setPhi] = useState(65);
   const [theta, setTheta] = useState(0);
   const [r, setR] = useState(0.72);
-  const [lightPower, setLightPower] = useState(56);
   const [subjectPos, setSubjectPos] = useState({ x: 0, y: 0 });
   const [gazeVector, setGazeVector] = useState({ x: 0, y: 0 });
 
@@ -185,12 +141,10 @@ export default function InteractiveMode() {
   const isDraggingCamera = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
   const distanceTrackReadyRef = useRef(false);
-  const lightingTrackReadyRef = useRef(false);
 
   const phiRef = useRef(phi);
   const thetaRef = useRef(theta);
   const rRef = useRef(r);
-  const lightPowerRef = useRef(lightPower);
   const subjectPosRef = useRef(subjectPos);
   const gazeVectorRef = useRef(gazeVector);
 
@@ -251,10 +205,6 @@ export default function InteractiveMode() {
   }, [r]);
 
   useEffect(() => {
-    lightPowerRef.current = lightPower;
-  }, [lightPower]);
-
-  useEffect(() => {
     subjectPosRef.current = subjectPos;
   }, [subjectPos]);
 
@@ -277,19 +227,6 @@ export default function InteractiveMode() {
 
     return () => clearTimeout(timeout);
   }, [r]);
-
-  useEffect(() => {
-    if (!lightingTrackReadyRef.current) {
-      lightingTrackReadyRef.current = true;
-      return;
-    }
-
-    const timeout = setTimeout(() => {
-      trackEvent("lighting_power_changed", { level: lightPower });
-    }, 280);
-
-    return () => clearTimeout(timeout);
-  }, [lightPower]);
 
   const selectedAr = AR_PRESETS.find((item) => item.id === arPresetId) || AR_PRESETS[0];
   const selectedAspectRatio = parseRatio(selectedAr.value);
@@ -324,9 +261,6 @@ export default function InteractiveMode() {
 
   const compositionKr = useMemo(() => getCompositionKeyword(subjectPos, true), [subjectPos]);
   const compositionEn = useMemo(() => getCompositionKeyword(subjectPos, false), [subjectPos]);
-  const lightingProfile = useMemo(() => getLightingProfile(lightPower), [lightPower]);
-  const lightingKeyword = isPromptKR ? lightingProfile.kr : lightingProfile.en;
-  const lightingChipLabel = isPromptKR ? lightingProfile.shortKr : lightingProfile.shortEn;
 
   const subjectForPrompt = isPromptKR ? (subjectKorean || subjectText.trim()) : subjectEnglish;
 
@@ -344,12 +278,11 @@ export default function InteractiveMode() {
         height: isPromptKR ? resolved.height.kr : resolved.height.en,
         direction: isPromptKR ? resolved.direction.kr : resolved.direction.en,
         gaze: isPromptKR ? gazeKr : gazeEn,
-        lighting: lightingKeyword,
         composition: isPromptKR ? compositionKr : compositionEn,
+        custom: customPromptHint,
         ratioFraming: isPromptKR ? selectedAr.krFraming : selectedAr.enFraming,
         arValue: selectedAr.value,
         includeAngle: includeAngleInPrompt,
-        includeLighting: includeLightingInPrompt,
       }),
     [
       subjectForPrompt,
@@ -357,12 +290,11 @@ export default function InteractiveMode() {
       resolved,
       gazeKr,
       gazeEn,
-      lightingKeyword,
       compositionKr,
       compositionEn,
+      customPromptHint,
       selectedAr,
       includeAngleInPrompt,
-      includeLightingInPrompt,
     ],
   );
 
@@ -682,12 +614,8 @@ export default function InteractiveMode() {
     });
   };
 
-  const handleToggleLightingInPrompt = () => {
-    setIncludeLightingInPrompt((prev) => {
-      const next = !prev;
-      trackEvent("prompt_lighting_toggle_changed", { enabled: next });
-      return next;
-    });
+  const handleCustomPromptHintChange = (value) => {
+    setCustomPromptHint(value);
   };
 
   const handleAspectRatioChange = (nextPresetId) => {
@@ -825,10 +753,9 @@ export default function InteractiveMode() {
 
       const animate = () => {
         frameAnimRef.current = requestAnimationFrame(animate);
-        const p = lightPowerRef.current / 100;
-        ambient.intensity = 0.35 + p * 1.2;
-        key.intensity = 0.55 + p * 1.45;
-        rim.intensity = 0.2 + p * 0.9;
+        ambient.intensity = 1.0;
+        key.intensity = 1.2;
+        rim.intensity = 0.5;
         updateSubjectOffset();
         updateCamera();
         renderer.render(scene, camera);
@@ -1062,7 +989,7 @@ export default function InteractiveMode() {
             pointerEvents: "none",
           }}
         >
-          드래그로 카메라 조정 · 휠로 거리 조정 · 우측 슬라이더 조명은 프롬프트에도 반영
+          드래그로 카메라 조정 · 휠로 거리 조정
         </div>
 
         <div
@@ -1303,43 +1230,6 @@ export default function InteractiveMode() {
               {Math.round(r * 100)}%
             </span>
           </div>
-
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 9, color: SEGMENT_COLORS.lighting, fontFamily: "sans-serif", fontWeight: 700 }}>
-              조명
-            </span>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={lightPower}
-              onChange={(event) => setLightPower(Number(event.target.value))}
-              style={{
-                writingMode: "vertical-lr",
-                direction: "rtl",
-                width: 20,
-                height: 140,
-                cursor: "pointer",
-                accentColor: SEGMENT_COLORS.lighting,
-              }}
-            />
-            <span style={{ fontSize: 9, color: SEGMENT_COLORS.lighting, fontFamily: "sans-serif", fontWeight: 700 }}>
-              {isPromptKR ? "어둡게↕밝게" : "dark↕bright"}
-            </span>
-            <span
-              style={{
-                maxWidth: 90,
-                textAlign: "center",
-                fontSize: 9,
-                color: "#ffd8a8",
-                fontFamily: "sans-serif",
-                fontWeight: 700,
-                lineHeight: 1.3,
-              }}
-            >
-              {lightingChipLabel}
-            </span>
-          </div>
         </div>
 
         <div
@@ -1367,7 +1257,6 @@ export default function InteractiveMode() {
               value: isPromptKR ? resolved.direction.kr : resolved.direction.en,
               disabled: !includeAngleInPrompt,
             },
-            { label: "LIGHT", type: "lighting", value: lightingChipLabel, disabled: !includeLightingInPrompt },
             { label: "POSITION", type: "composition", value: isPromptKR ? compositionKr : compositionEn },
           ].map((item) => {
             const color = item.disabled ? "#6f7787" : SEGMENT_COLORS[item.type] || "#5ce8ff";
@@ -1514,23 +1403,30 @@ export default function InteractiveMode() {
             >
               {includeAngleInPrompt ? "ANGLE ON" : "ANGLE OFF"}
             </button>
-            <button
-              onClick={handleToggleLightingInPrompt}
-              style={{
-                background: includeLightingInPrompt ? withAlpha(SEGMENT_COLORS.lighting, 0.22) : "transparent",
-                color: includeLightingInPrompt ? SEGMENT_COLORS.lighting : "#7a8394",
-                border: `1px solid ${includeLightingInPrompt ? withAlpha(SEGMENT_COLORS.lighting, 0.88) : "#364054"}`,
-                borderRadius: 4,
-                padding: "2px 6px",
-                cursor: "pointer",
-                fontSize: 10,
-                fontFamily: "sans-serif",
-                fontWeight: 700,
-              }}
-            >
-              {includeLightingInPrompt ? "LIGHT ON" : "LIGHT OFF"}
-            </button>
           </div>
+
+          <input
+            type="text"
+            value={customPromptHint}
+            onChange={(event) => handleCustomPromptHintChange(event.target.value)}
+            onBlur={() => {
+              trackEvent("prompt_custom_hint_updated", {
+                length: String(customPromptHint || "").trim().length,
+              });
+            }}
+            placeholder={isPromptKR ? "추가 키워드(선택) 예: 재질 디테일 강조" : "Optional extra hint e.g. accurate material texture"}
+            style={{
+              width: isMobile ? "100%" : 250,
+              maxWidth: "100%",
+              background: "#161a22",
+              border: "1px solid #2c3444",
+              borderRadius: 6,
+              padding: "5px 8px",
+              color: SEGMENT_COLORS.custom,
+              fontSize: 11,
+              fontFamily: "sans-serif",
+            }}
+          />
         </div>
 
         <div style={{ flex: 1, minWidth: 220, fontFamily: "monospace", lineHeight: 1.7 }}>
