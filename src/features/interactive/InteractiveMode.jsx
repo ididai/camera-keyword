@@ -808,57 +808,6 @@ export default function InteractiveMode() {
       </div>
 
       <div
-        style={{
-          padding: "7px 12px",
-          background: "#111",
-          borderBottom: "1px solid #222",
-          display: "flex",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 5,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 10,
-            color: "#f19eb8",
-            fontFamily: "'Arial Black',sans-serif",
-            fontWeight: 900,
-            letterSpacing: "0.18em",
-            marginRight: 4,
-          }}
-        >
-          ✦ RATIO
-        </span>
-        <span style={{ fontSize: 11, color: "#777", fontFamily: "sans-serif", marginRight: 4 }}>
-          {isPromptKR ? "비율 프레임 + 피사체 위치 드래그" : "ratio frame + subject drag"}
-        </span>
-
-        {AR_PRESETS.map((preset) => {
-          const isOn = arPresetId === preset.id;
-          return (
-            <button
-              key={preset.id}
-              onClick={() => setArPresetId(preset.id)}
-              style={{
-                background: isOn ? "#5ce8ff" : "transparent",
-                color: isOn ? "#000" : "#888",
-                border: `1px solid ${isOn ? "#5ce8ff" : "#333"}`,
-                borderRadius: 3,
-                padding: "2px 7px",
-                cursor: "pointer",
-                fontFamily: "'Arial Black',sans-serif",
-                fontSize: 10,
-                fontWeight: 900,
-              }}
-            >
-              {preset.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div
         ref={viewerRef}
         style={{
           flex: 1,
@@ -884,6 +833,66 @@ export default function InteractiveMode() {
           }}
         >
           드래그로 카메라 조정 · 휠로 거리 조정 · 우측 슬라이더로 광원 조절
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            top: 36,
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            flexWrap: "wrap",
+            justifyContent: "center",
+            padding: "6px 10px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.10)",
+            background: "rgba(12,14,22,0.72)",
+            backdropFilter: "blur(2px)",
+            zIndex: 12,
+            maxWidth: "94%",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 10,
+              color: "#f19eb8",
+              fontFamily: "'Arial Black',sans-serif",
+              fontWeight: 900,
+              letterSpacing: "0.18em",
+              marginRight: 4,
+            }}
+          >
+            ✦ RATIO
+          </span>
+          <span style={{ fontSize: 11, color: "#9aa0ac", fontFamily: "sans-serif", marginRight: 4 }}>
+            {isPromptKR ? "비율 프레임 + 피사체 위치 드래그" : "ratio frame + subject drag"}
+          </span>
+
+          {AR_PRESETS.map((preset) => {
+            const isOn = arPresetId === preset.id;
+            return (
+              <button
+                key={preset.id}
+                onClick={() => setArPresetId(preset.id)}
+                style={{
+                  background: isOn ? "#5ce8ff" : "transparent",
+                  color: isOn ? "#000" : "#9aa0ac",
+                  border: `1px solid ${isOn ? "#5ce8ff" : "rgba(255,255,255,0.20)"}`,
+                  borderRadius: 3,
+                  padding: "2px 7px",
+                  cursor: "pointer",
+                  fontFamily: "'Arial Black',sans-serif",
+                  fontSize: 10,
+                  fontWeight: 900,
+                }}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
         </div>
 
         <div
