@@ -12,6 +12,7 @@ import {
 import { detectAwkwardExpressions } from "./promptQuality";
 import { getPromptHistory, removePromptHistory, savePromptHistory } from "./historyStore";
 import { getUserPresets, removeUserPreset, renameUserPreset, saveUserPreset } from "./userPresetStore";
+import { initAnalytics, trackEvent } from "../analytics/eventLogger";
 
 const PERSON_SUBJECT = SUBJECT_TYPES.find((item) => item.id === "person") ?? SUBJECT_TYPES[0];
 const ANCHOR_ACCENT = "#3df6ff";
@@ -181,6 +182,8 @@ export default function InteractiveMode() {
   const frameAnimRef = useRef(null);
   const isDraggingCamera = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
+  const distanceTrackReadyRef = useRef(false);
+  const lightingTrackReadyRef = useRef(false);
 
   const phiRef = useRef(phi);
   const thetaRef = useRef(theta);
@@ -202,6 +205,11 @@ export default function InteractiveMode() {
   useEffect(() => {
     setPromptHistory(getPromptHistory());
     setUserPresets(getUserPresets());
+  }, []);
+
+  useEffect(() => {
+    initAnalytics();
+    trackEvent("interactive_mode_opened", { mode: "person_single" });
   }, []);
 
   useEffect(() => {
@@ -251,6 +259,35 @@ export default function InteractiveMode() {
   useEffect(() => {
     gazeVectorRef.current = gazeVector;
   }, [gazeVector]);
+
+  useEffect(() => {
+    if (!distanceTrackReadyRef.current) {
+      distanceTrackReadyRef.current = true;
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      trackEvent("camera_distance_changed", {
+        distance: Number(r.toFixed(3)),
+        distancePercent: Math.round(r * 100),
+      });
+    }, 280);
+
+    return () => clearTimeout(timeout);
+  }, [r]);
+
+  useEffect(() => {
+    if (!lightingTrackReadyRef.current) {
+      lightingTrackReadyRef.current = true;
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      trackEvent("lighting_power_changed", { level: lightPower });
+    }, 280);
+
+    return () => clearTimeout(timeout);
+  }, [lightPower]);
 
   const selectedAr = AR_PRESETS.find((item) => item.id === arPresetId) || AR_PRESETS[0];
   const selectedAspectRatio = parseRatio(selectedAr.value);
@@ -394,6 +431,7 @@ export default function InteractiveMode() {
 
     if (!value) {
       setTranslateError("주체를 먼저 입력해 주세요.");
+      trackEvent("subject_translate_blocked", { reason: "empty_subject" });
       return;
     }
 
@@ -403,11 +441,17 @@ export default function InteractiveMode() {
       setSubjectText("");
       setTranslateError("");
       setPromptLang("en");
+      trackEvent("subject_translate_skipped", {
+        reason: "non_korean_input",
+        textLength: value.length,
+      });
       return;
     }
 
+    const startedAt = Date.now();
     setTranslating(true);
     setTranslateError("");
+    trackEvent("subject_translate_started", { textLength: value.length });
 
     try {
       const res = await fetch("/api/translate", {
@@ -429,25 +473,47 @@ export default function InteractiveMode() {
       setSubjectText("");
       setTranslateError("");
       setPromptLang("en");
+      trackEvent("subject_translate_succeeded", {
+        textLength: value.length,
+        translatedLength: translated.length,
+        latencyMs: Date.now() - startedAt,
+      });
     } catch (error) {
       setTranslateError(error?.message || "번역 중 오류가 발생했습니다.");
+      trackEvent("subject_translate_failed", {
+        latencyMs: Date.now() - startedAt,
+        message: error?.message || "unknown_error",
+      });
     }
 
     setTranslating(false);
   };
 
   const copyPrompt = async () => {
-    if (!displayPrompt || promptValidationError) return;
+    if (!displayPrompt || promptValidationError) {
+      trackEvent("prompt_copy_blocked", {
+        reason: !displayPrompt ? "empty_prompt" : "validation_error",
+      });
+      return;
+    }
 
     try {
       await navigator.clipboard.writeText(displayPrompt);
-      setPromptHistory(
-        savePromptHistory({
-          text: displayPrompt,
-          lang: promptLang,
-          source: "auto",
-        }),
-      );
+      const nextHistory = savePromptHistory({
+        text: displayPrompt,
+        lang: promptLang,
+        source: "auto",
+      });
+      setPromptHistory(nextHistory);
+      trackEvent("prompt_history_saved", {
+        source: "auto",
+        count: nextHistory.length,
+        lang: promptLang,
+      });
+      trackEvent("prompt_copied", {
+        method: "clipboard_api",
+        lang: promptLang,
+      });
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -460,37 +526,56 @@ export default function InteractiveMode() {
       el.select();
       try {
         document.execCommand("copy");
-        setPromptHistory(
-          savePromptHistory({
-            text: displayPrompt,
-            lang: promptLang,
-            source: "auto",
-          }),
-        );
+        const nextHistory = savePromptHistory({
+          text: displayPrompt,
+          lang: promptLang,
+          source: "auto",
+        });
+        setPromptHistory(nextHistory);
+        trackEvent("prompt_history_saved", {
+          source: "auto",
+          count: nextHistory.length,
+          lang: promptLang,
+        });
+        trackEvent("prompt_copied", {
+          method: "exec_command",
+          lang: promptLang,
+        });
         setCopied(true);
         setTimeout(() => setCopied(false), 1800);
       } catch {
         setTranslateError("복사에 실패했어요. 다시 시도해 주세요.");
+        trackEvent("prompt_copy_failed", { method: "fallback" });
       }
       document.body.removeChild(el);
     }
   };
 
   const saveCurrentPromptToHistory = () => {
-    if (!displayPrompt || promptValidationError) return;
-    setPromptHistory(
-      savePromptHistory({
-        text: displayPrompt,
-        lang: promptLang,
-        source: "manual",
-      }),
-    );
+    if (!displayPrompt || promptValidationError) {
+      trackEvent("prompt_history_save_blocked", {
+        reason: !displayPrompt ? "empty_prompt" : "validation_error",
+      });
+      return;
+    }
+    const nextHistory = savePromptHistory({
+      text: displayPrompt,
+      lang: promptLang,
+      source: "manual",
+    });
+    setPromptHistory(nextHistory);
+    trackEvent("prompt_history_saved", {
+      source: "manual",
+      count: nextHistory.length,
+      lang: promptLang,
+    });
   };
 
   const saveCurrentPreset = () => {
     const fallbackName = `프리셋 ${userPresets.length + 1}`;
+    const resolvedName = (presetName || "").trim() || fallbackName;
     const next = saveUserPreset({
-      name: (presetName || "").trim() || fallbackName,
+      name: resolvedName,
       phi,
       theta,
       r,
@@ -500,6 +585,10 @@ export default function InteractiveMode() {
     });
     setUserPresets(next);
     setPresetName("");
+    trackEvent("preset_saved", {
+      presetNameLength: resolvedName.length,
+      count: next.length,
+    });
   };
 
   const applyUserPreset = (preset) => {
@@ -509,13 +598,71 @@ export default function InteractiveMode() {
     setSubjectPos(preset.subjectPos || { x: 0, y: 0 });
     setGazeVector(preset.gazeVector || { x: 0, y: 0 });
     setArPresetId(preset.arPresetId || "ar916");
+    trackEvent("preset_applied", {
+      presetId: preset.id,
+      ratioId: preset.arPresetId || "ar916",
+    });
   };
 
   const handleRenamePreset = (preset) => {
     if (typeof window === "undefined") return;
     const nextName = window.prompt("프리셋 이름", preset.name || "");
     if (nextName == null) return;
-    setUserPresets(renameUserPreset(preset.id, nextName));
+    const renamed = renameUserPreset(preset.id, nextName);
+    setUserPresets(renamed);
+    trackEvent("preset_renamed", {
+      presetId: preset.id,
+      presetNameLength: String(nextName || "").trim().length,
+    });
+  };
+
+  const handleRemovePreset = (presetId) => {
+    const next = removeUserPreset(presetId);
+    setUserPresets(next);
+    trackEvent("preset_removed", {
+      presetId,
+      count: next.length,
+    });
+  };
+
+  const handleRemoveHistoryItem = (itemId) => {
+    const next = removePromptHistory(itemId);
+    setPromptHistory(next);
+    trackEvent("prompt_history_removed", {
+      itemId,
+      count: next.length,
+    });
+  };
+
+  const handleCopyHistoryItem = async (item) => {
+    try {
+      await navigator.clipboard.writeText(item.text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+      trackEvent("prompt_history_copied", {
+        itemId: item.id,
+        lang: item.lang || "en",
+      });
+    } catch {
+      setTranslateError("히스토리 복사에 실패했어요.");
+      trackEvent("prompt_history_copy_failed", { itemId: item.id });
+    }
+  };
+
+  const handlePromptLangChange = (nextLang) => {
+    if (!nextLang || nextLang === promptLang) return;
+    setPromptLang(nextLang);
+    trackEvent("prompt_language_changed", { lang: nextLang });
+  };
+
+  const handleAspectRatioChange = (nextPresetId) => {
+    if (!nextPresetId || nextPresetId === arPresetId) return;
+    const nextPreset = AR_PRESETS.find((item) => item.id === nextPresetId);
+    setArPresetId(nextPresetId);
+    trackEvent("ratio_changed", {
+      ratioId: nextPresetId,
+      ratioValue: nextPreset?.value || "",
+    });
   };
 
   useEffect(() => {
@@ -924,7 +1071,7 @@ export default function InteractiveMode() {
             return (
               <button
                 key={preset.id}
-                onClick={() => setArPresetId(preset.id)}
+                onClick={() => handleAspectRatioChange(preset.id)}
                 style={{
                   background: isOn ? "#5ce8ff" : "transparent",
                   color: isOn ? "#000" : "#9aa0ac",
@@ -1256,7 +1403,7 @@ export default function InteractiveMode() {
 
           <div style={{ display: "flex", gap: 4 }}>
             <button
-              onClick={() => setPromptLang("kr")}
+              onClick={() => handlePromptLangChange("kr")}
               style={{
                 background: isPromptKR ? "#f19eb8" : "transparent",
                 color: isPromptKR ? "#111" : "#777",
@@ -1272,7 +1419,7 @@ export default function InteractiveMode() {
               KR
             </button>
             <button
-              onClick={() => setPromptLang("en")}
+              onClick={() => handlePromptLangChange("en")}
               style={{
                 background: !isPromptKR ? "#f19eb8" : "transparent",
                 color: !isPromptKR ? "#111" : "#777",
@@ -1475,7 +1622,7 @@ export default function InteractiveMode() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setUserPresets(removeUserPreset(preset.id))}
+                  onClick={() => handleRemovePreset(preset.id)}
                   style={{
                     background: "transparent",
                     border: "none",
@@ -1545,15 +1692,7 @@ export default function InteractiveMode() {
               >
                 <button
                   type="button"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(item.text);
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 1200);
-                    } catch {
-                      setTranslateError("히스토리 복사에 실패했어요.");
-                    }
-                  }}
+                  onClick={() => handleCopyHistoryItem(item)}
                   style={{
                     flex: 1,
                     textAlign: "left",
@@ -1576,7 +1715,7 @@ export default function InteractiveMode() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setPromptHistory(removePromptHistory(item.id))}
+                  onClick={() => handleRemoveHistoryItem(item.id)}
                   style={{
                     background: "transparent",
                     border: "none",

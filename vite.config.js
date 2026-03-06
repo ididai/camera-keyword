@@ -1,6 +1,8 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const ANALYTICS_EMAIL_REGEX = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi
+
 function json(res, status, payload) {
   res.statusCode = status
   res.setHeader('Content-Type', 'application/json')
@@ -18,6 +20,90 @@ function readBody(req) {
     })
     req.on('error', reject)
   })
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function sanitizeAnalyticsString(value, maxLength = 200) {
+  const clean = String(value || '').trim().replace(ANALYTICS_EMAIL_REGEX, '[redacted-email]')
+  if (!clean) return ''
+  return clean.length <= maxLength ? clean : clean.slice(0, maxLength)
+}
+
+function sanitizeAnalyticsValue(value, depth = 0) {
+  if (value == null) return undefined
+  if (typeof value === 'string') return sanitizeAnalyticsString(value)
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return Number.isFinite(value) ? Number(value.toFixed(3)) : undefined
+  if (depth > 1) return undefined
+
+  if (Array.isArray(value)) {
+    const cleaned = value
+      .slice(0, 12)
+      .map((item) => sanitizeAnalyticsValue(item, depth + 1))
+      .filter((item) => item !== undefined)
+    return cleaned.length ? cleaned : undefined
+  }
+
+  if (isPlainObject(value)) {
+    const out = {}
+    Object.entries(value)
+      .slice(0, 24)
+      .forEach(([key, item]) => {
+        const safeKey = String(key || '')
+          .trim()
+          .replace(/[^a-zA-Z0-9_.-]/g, '_')
+          .slice(0, 40)
+        if (!safeKey) return
+        const safeValue = sanitizeAnalyticsValue(item, depth + 1)
+        if (safeValue !== undefined) out[safeKey] = safeValue
+      })
+    return Object.keys(out).length ? out : undefined
+  }
+
+  return undefined
+}
+
+function normalizeAnalyticsEvent(raw) {
+  if (!isPlainObject(raw)) return null
+
+  const name = sanitizeAnalyticsString(raw.name || '', 64)
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]/g, '_')
+  if (!name) return null
+
+  const ts = Number(raw.ts)
+  const event = {
+    name,
+    ts: Number.isFinite(ts) ? Math.round(ts) : Date.now(),
+  }
+
+  const path = sanitizeAnalyticsString(raw.path || '', 120)
+  if (path) event.path = path
+
+  const anonymousId = sanitizeAnalyticsString(raw.anonymousId || '', 80)
+  if (anonymousId) event.anonymousId = anonymousId
+
+  const sessionId = sanitizeAnalyticsString(raw.sessionId || '', 80)
+  if (sessionId) event.sessionId = sessionId
+
+  const props = sanitizeAnalyticsValue(raw.props, 0)
+  if (props && isPlainObject(props) && Object.keys(props).length) {
+    event.props = props
+  }
+
+  return event
+}
+
+function extractAnalyticsEvents(body) {
+  if (Array.isArray(body)) return body
+  if (isPlainObject(body)) {
+    if (Array.isArray(body.events)) return body.events
+    if (isPlainObject(body.event)) return [body.event]
+  }
+  return []
 }
 
 function geminiTranslateDevApi(geminiApiKeyFromEnv, googleTranslateKeyFromEnv) {
@@ -144,13 +230,91 @@ function geminiTranslateDevApi(geminiApiKeyFromEnv, googleTranslateKeyFromEnv) {
   }
 }
 
+function analyticsDevApi(analyticsWebhookUrlFromEnv, analyticsWebhookTokenFromEnv) {
+  return {
+    name: 'analytics-dev-api',
+    configureServer(server) {
+      server.middlewares.use('/api/analytics', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.setHeader('Allow', 'POST')
+          return json(res, 405, { error: 'Method not allowed' })
+        }
+
+        try {
+          const raw = await readBody(req)
+          const parsed = raw ? JSON.parse(raw) : {}
+          const events = extractAnalyticsEvents(parsed)
+            .map(normalizeAnalyticsEvent)
+            .filter(Boolean)
+            .slice(0, 50)
+
+          if (!events.length) {
+            return json(res, 400, { error: 'events are required' })
+          }
+
+          const payload = {
+            receivedAt: new Date().toISOString(),
+            source: 'camera-keyword-dev',
+            request: {
+              ip: String(req.headers['x-forwarded-for'] || '')
+                .split(',')[0]
+                .trim() || null,
+              userAgent: sanitizeAnalyticsString(req.headers['user-agent'] || '', 180) || null,
+            },
+            events,
+          }
+
+          const analyticsWebhookUrl =
+            analyticsWebhookUrlFromEnv || process.env.ANALYTICS_WEBHOOK_URL
+          const analyticsWebhookToken =
+            analyticsWebhookTokenFromEnv || process.env.ANALYTICS_WEBHOOK_TOKEN
+
+          if (analyticsWebhookUrl) {
+            try {
+              const headers = { 'Content-Type': 'application/json' }
+              if (analyticsWebhookToken) {
+                headers.Authorization = `Bearer ${analyticsWebhookToken}`
+              }
+
+              const forwarded = await fetch(analyticsWebhookUrl, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(payload),
+              })
+
+              if (!forwarded.ok) {
+                return json(res, 202, { accepted: events.length, forwarded: false })
+              }
+            } catch {
+              return json(res, 202, { accepted: events.length, forwarded: false })
+            }
+          } else {
+            // eslint-disable-next-line no-console
+            console.log('[analytics-dev]', JSON.stringify(payload))
+          }
+
+          return json(res, 200, { accepted: events.length, forwarded: Boolean(analyticsWebhookUrl) })
+        } catch (error) {
+          return json(res, 500, { error: error?.message || 'Unexpected analytics error' })
+        }
+      })
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const geminiApiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY
   const googleTranslateKey = env.GOOGLE_TRANSLATE_KEY || process.env.GOOGLE_TRANSLATE_KEY
+  const analyticsWebhookUrl = env.ANALYTICS_WEBHOOK_URL || process.env.ANALYTICS_WEBHOOK_URL
+  const analyticsWebhookToken = env.ANALYTICS_WEBHOOK_TOKEN || process.env.ANALYTICS_WEBHOOK_TOKEN
 
   return {
-    plugins: [react(), geminiTranslateDevApi(geminiApiKey, googleTranslateKey)],
+    plugins: [
+      react(),
+      geminiTranslateDevApi(geminiApiKey, googleTranslateKey),
+      analyticsDevApi(analyticsWebhookUrl, analyticsWebhookToken),
+    ],
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
