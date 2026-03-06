@@ -1,24 +1,9 @@
-const BANNED_PATTERNS = [
-  /\bvery\s+very\b/gi,
-  /\bhighly\s+detailed\b/gi,
-  /\bultra\s+high\s+quality\b/gi,
-  /\bamazing\b/gi,
-  /\bbeautiful\b/gi,
-];
-
-const MULTI_SPACE = /\s{2,}/g;
-const CAMERA_TERM_NORMALIZERS = [
-  { pattern: /\bcowboy\s+shot\b/gi, replace: "thigh-up framing" },
-  { pattern: /\bthree[-\s]?quarter\s+back\s+view\b/gi, replace: "rear 45-degree oblique view" },
-  { pattern: /\brear\s+three[-\s]?quarter\b/gi, replace: "rear 45-degree oblique view" },
-  { pattern: /\bthree[-\s]?quarter\s+front\s+view\b/gi, replace: "front 45-degree oblique view" },
-  { pattern: /\bthree[-\s]?quarter\s+view\b/gi, replace: "45-degree oblique view" },
-  { pattern: /\bbird'?s-eye\s+view\b/gi, replace: "top-down overhead view" },
-  { pattern: /\bworm'?s-eye\s+view\b/gi, replace: "extreme low-angle upward view" },
-  { pattern: /카우보이\s*샷/gi, replace: "허벅지 위 프레이밍" },
-  { pattern: /(버즈아이|버드아이)\s*뷰/gi, replace: "수직 탑다운 시점" },
-  { pattern: /웜스아이\s*뷰/gi, replace: "극저각 상향 시점" },
-];
+import {
+  hasKorean,
+  normalizeCameraTerm,
+  normalizeSubjectInput,
+  normalizeToken,
+} from "./promptNormalizer";
 
 export const SEGMENT_COLORS = {
   subject: "#ffd166",
@@ -31,43 +16,15 @@ export const SEGMENT_COLORS = {
 
 export const DEFAULT_PROMPT_ORDER = ["subject", "shot", "angle", "composition", "framing"];
 
-export function hasKorean(text) {
-  return /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(text || "");
-}
-
-function normalizeToken(token) {
-  return (token || "")
-    .trim()
-    .replace(/^,+|,+$/g, "")
-    .replace(MULTI_SPACE, " ");
-}
-
-function normalizeCameraTerm(token) {
-  let normalized = normalizeToken(token);
-  for (const rule of CAMERA_TERM_NORMALIZERS) {
-    normalized = normalized.replace(rule.pattern, rule.replace);
-  }
-  return normalized.replace(MULTI_SPACE, " ").trim();
-}
-
-function cleanSubject(subject) {
-  let value = normalizeToken(subject)
-    .replace(/^"|"$/g, "")
-    .replace(/^'|'$/g, "");
-
-  for (const pattern of BANNED_PATTERNS) {
-    value = value.replace(pattern, "").trim();
-  }
-
-  return value.replace(MULTI_SPACE, " ").replace(/^,+|,+$/g, "").trim();
-}
-
 export function validatePromptInput({ promptLang, subjectKorean, subjectEnglish }) {
-  if (!subjectKorean.trim() && !subjectEnglish.trim()) {
+  const kr = normalizeSubjectInput(subjectKorean);
+  const en = normalizeSubjectInput(subjectEnglish);
+
+  if (!kr && !en) {
     return "주체를 먼저 입력해 주세요.";
   }
 
-  if (promptLang === "en" && !subjectEnglish.trim()) {
+  if (promptLang === "en" && !en) {
     return "번역 버튼을 눌러 영어 주체를 생성해 주세요.";
   }
 
@@ -84,7 +41,7 @@ export function buildPromptSegments({
   ratioFraming,
   arValue,
 }) {
-  const subject = cleanSubject(subjectText);
+  const subject = normalizeSubjectInput(subjectText);
   const baseSegments = [
     { type: "subject", text: subject },
     { type: "shot", text: shot },
@@ -129,3 +86,5 @@ export function toPromptText(segments) {
   if (!body) return ratio || "";
   return ratio ? `${body} ${ratio}` : body;
 }
+
+export { hasKorean };

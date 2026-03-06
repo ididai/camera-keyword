@@ -207,6 +207,14 @@ export const MJ_AR_PRESETS = [
   { id: "ar219",  label: "2:1",    params: "--ar 2:1" },
   { id: "ar2391", label: "2.39:1", params: "--ar 239:100" },
 ];
+
+// Interactive 모드 전용 비율 프리셋 (프롬프트 문구 포함)
+export const AR_PRESETS = [
+  { id: "ar916", label: "9:16", value: "9:16", krFraming: "세로 프레이밍", enFraming: "vertical framing" },
+  { id: "ar11", label: "1:1", value: "1:1", krFraming: "정사각 프레이밍", enFraming: "square framing" },
+  { id: "ar45", label: "4:5", value: "4:5", krFraming: "세로 포트레이트 프레이밍", enFraming: "portrait framing" },
+  { id: "ar169", label: "16:9", value: "16:9", krFraming: "가로 시네마 프레이밍", enFraming: "cinematic wide framing" },
+];
 export const MJ_PARAM_PRESETS = MJ_PARAM_GROUPS.flatMap(g => g.items);
 
 export const SUBJECT_TYPES = [
