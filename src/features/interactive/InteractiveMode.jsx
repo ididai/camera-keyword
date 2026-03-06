@@ -14,6 +14,8 @@ import { detectAwkwardExpressions } from "./promptQuality";
 const PERSON_SUBJECT = SUBJECT_TYPES.find((item) => item.id === "person") ?? SUBJECT_TYPES[0];
 const ANCHOR_ACCENT = "#3df6ff";
 const ANCHOR_ACCENT_SOFT = "rgba(61,246,255,0.28)";
+const GAZE_RADIUS_MIN = 28;
+const GAZE_RADIUS_MAX = 84;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -25,21 +27,42 @@ function parseRatio(value) {
   return w / h;
 }
 
-function getGazeKeyword(theta, isKorean) {
-  const abs = Math.abs(theta);
-  const right = theta > 0;
+function getGazeRadius(frameRect) {
+  return clamp(Math.min(frameRect.width, frameRect.height) * 0.2, GAZE_RADIUS_MIN, GAZE_RADIUS_MAX);
+}
 
-  if (abs > 150) return "";
-  if (abs < 12) return isKorean ? "카메라 정면 응시" : "looking directly at camera";
-  if (abs >= 80) {
-    return right
-      ? (isKorean ? "오른쪽 측면 시선" : "facing right")
-      : (isKorean ? "왼쪽 측면 시선" : "facing left");
+function getGazeKeyword(gazeVector, isKorean) {
+  const x = clamp(gazeVector?.x ?? 0, -1, 1);
+  const y = clamp(gazeVector?.y ?? 0, -1, 1);
+  const mag = Math.hypot(x, y);
+  if (mag < 0.16) return isKorean ? "카메라 정면 응시" : "looking directly at camera";
+
+  const nx = x / mag;
+  const ny = y / mag;
+  const h = nx > 0.45 ? "right" : nx < -0.45 ? "left" : "";
+  const v = ny < -0.45 ? "up" : ny > 0.45 ? "down" : "";
+
+  if (isKorean) {
+    if (v === "up" && h === "right") return "오른쪽 위를 응시";
+    if (v === "up" && h === "left") return "왼쪽 위를 응시";
+    if (v === "down" && h === "right") return "오른쪽 아래를 응시";
+    if (v === "down" && h === "left") return "왼쪽 아래를 응시";
+    if (v === "up") return "위를 응시";
+    if (v === "down") return "아래를 응시";
+    if (h === "right") return "오른쪽을 응시";
+    if (h === "left") return "왼쪽을 응시";
+    return "카메라 정면 응시";
   }
 
-  return right
-    ? (isKorean ? "오른쪽 비스듬히" : "angled right")
-    : (isKorean ? "왼쪽 비스듬히" : "angled left");
+  if (v === "up" && h === "right") return "looking up-right";
+  if (v === "up" && h === "left") return "looking up-left";
+  if (v === "down" && h === "right") return "looking down-right";
+  if (v === "down" && h === "left") return "looking down-left";
+  if (v === "up") return "looking up";
+  if (v === "down") return "looking down";
+  if (h === "right") return "looking right";
+  if (h === "left") return "looking left";
+  return "looking directly at camera";
 }
 
 function getCompositionKeyword(position, isKorean) {
@@ -87,6 +110,7 @@ export default function InteractiveMode() {
   const [theta, setTheta] = useState(0);
   const [r, setR] = useState(0.72);
   const [subjectPos, setSubjectPos] = useState({ x: 0, y: 0 });
+  const [gazeVector, setGazeVector] = useState({ x: 0, y: 0 });
 
   const [viewerSize, setViewerSize] = useState({ width: 0, height: 0 });
   const [copied, setCopied] = useState(false);
@@ -103,6 +127,7 @@ export default function InteractiveMode() {
   const thetaRef = useRef(theta);
   const rRef = useRef(r);
   const subjectPosRef = useRef(subjectPos);
+  const gazeVectorRef = useRef(gazeVector);
 
   const isMobile = viewportWidth <= 860;
 
@@ -154,6 +179,10 @@ export default function InteractiveMode() {
     subjectPosRef.current = subjectPos;
   }, [subjectPos]);
 
+  useEffect(() => {
+    gazeVectorRef.current = gazeVector;
+  }, [gazeVector]);
+
   const selectedAr = AR_PRESETS.find((item) => item.id === arPresetId) || AR_PRESETS[0];
   const selectedAspectRatio = parseRatio(selectedAr.value);
 
@@ -182,8 +211,8 @@ export default function InteractiveMode() {
   const resolved = useMemo(() => resolveKeywords(phi, theta, r, PERSON_SUBJECT), [phi, theta, r]);
   const isPromptKR = promptLang === "kr";
 
-  const gazeKr = useMemo(() => getGazeKeyword(theta, true), [theta]);
-  const gazeEn = useMemo(() => getGazeKeyword(theta, false), [theta]);
+  const gazeKr = useMemo(() => getGazeKeyword(gazeVector, true), [gazeVector]);
+  const gazeEn = useMemo(() => getGazeKeyword(gazeVector, false), [gazeVector]);
 
   const compositionKr = useMemo(() => getCompositionKeyword(subjectPos, true), [subjectPos]);
   const compositionEn = useMemo(() => getCompositionKeyword(subjectPos, false), [subjectPos]);
@@ -254,12 +283,54 @@ export default function InteractiveMode() {
     });
   };
 
+  const updateGazeFromPointer = (clientX, clientY) => {
+    if (!frameRef.current) return;
+    const rect = frameRef.current.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const anchorX = rect.left + ((subjectPosRef.current.x + 1) / 2) * rect.width;
+    const anchorY = rect.top + ((subjectPosRef.current.y + 1) / 2) * rect.height;
+    const radius = getGazeRadius({ width: rect.width, height: rect.height });
+
+    let dx = clientX - anchorX;
+    let dy = clientY - anchorY;
+    const distance = Math.hypot(dx, dy);
+    if (distance > radius && distance > 0) {
+      const scale = radius / distance;
+      dx *= scale;
+      dy *= scale;
+    }
+
+    setGazeVector({
+      x: clamp(dx / radius, -1, 1),
+      y: clamp(dy / radius, -1, 1),
+    });
+  };
+
   const onFramePointerDown = (event) => {
     event.preventDefault();
     updateSubjectPositionFromPointer(event.clientX, event.clientY);
 
     const onMove = (moveEvent) => {
       updateSubjectPositionFromPointer(moveEvent.clientX, moveEvent.clientY);
+    };
+
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  const onGazePointerDown = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    updateGazeFromPointer(event.clientX, event.clientY);
+
+    const onMove = (moveEvent) => {
+      updateGazeFromPointer(moveEvent.clientX, moveEvent.clientY);
     };
 
     const onUp = () => {
@@ -520,6 +591,14 @@ export default function InteractiveMode() {
       cleanup();
     };
   }, []);
+
+  const gazeRadius = useMemo(() => getGazeRadius(frameRect), [frameRect]);
+  const anchorPercentX = ((subjectPos.x + 1) / 2) * 100;
+  const anchorPercentY = ((subjectPos.y + 1) / 2) * 100;
+  const gazeDx = gazeVector.x * gazeRadius;
+  const gazeDy = gazeVector.y * gazeRadius;
+  const gazeLength = Math.hypot(gazeDx, gazeDy);
+  const gazeAngle = (Math.atan2(gazeDy, gazeDx) * 180) / Math.PI;
 
   return (
     <div
@@ -820,8 +899,8 @@ export default function InteractiveMode() {
             <div
               style={{
                 position: "absolute",
-                left: `${((subjectPos.x + 1) / 2) * 100}%`,
-                top: `${((subjectPos.y + 1) / 2) * 100}%`,
+                left: `${anchorPercentX}%`,
+                top: `${anchorPercentY}%`,
                 transform: "translate(-50%, -50%)",
                 width: 22,
                 height: 22,
@@ -847,14 +926,69 @@ export default function InteractiveMode() {
             <div
               style={{
                 position: "absolute",
-                left: `${((subjectPos.x + 1) / 2) * 100}%`,
-                top: `${((subjectPos.y + 1) / 2) * 100}%`,
+                left: `${anchorPercentX}%`,
+                top: `${anchorPercentY}%`,
                 transform: "translate(-50%, -50%)",
                 width: 34,
                 height: 34,
                 borderRadius: "50%",
                 border: `1px solid ${ANCHOR_ACCENT_SOFT}`,
                 boxShadow: `0 0 14px ${ANCHOR_ACCENT_SOFT}`,
+              }}
+            />
+            {gazeLength > 2 ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${anchorPercentX}%`,
+                  top: `${anchorPercentY}%`,
+                  transform: `translate(-50%, -50%) rotate(${gazeAngle}deg)`,
+                  width: `${gazeLength}px`,
+                  height: 2,
+                  background: ANCHOR_ACCENT,
+                  boxShadow: "0 0 8px rgba(61,246,255,0.8)",
+                  transformOrigin: "0 50%",
+                  pointerEvents: "none",
+                }}
+              />
+            ) : null}
+            {gazeLength > 2 ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: `calc(${anchorPercentX}% + ${gazeDx}px)`,
+                  top: `calc(${anchorPercentY}% + ${gazeDy}px)`,
+                  width: 0,
+                  height: 0,
+                  borderTop: "6px solid transparent",
+                  borderBottom: "6px solid transparent",
+                  borderLeft: `10px solid ${ANCHOR_ACCENT}`,
+                  transform: `translate(-50%, -50%) rotate(${gazeAngle}deg)`,
+                  filter: "drop-shadow(0 0 6px rgba(61,246,255,0.8))",
+                  pointerEvents: "none",
+                }}
+              />
+            ) : null}
+            <button
+              type="button"
+              onPointerDown={onGazePointerDown}
+              onDoubleClick={() => setGazeVector({ x: 0, y: 0 })}
+              title={isPromptKR ? "시선 화살표 드래그" : "Drag gaze arrow"}
+              style={{
+                position: "absolute",
+                left: `calc(${anchorPercentX}% + ${gazeDx}px)`,
+                top: `calc(${anchorPercentY}% + ${gazeDy}px)`,
+                transform: "translate(-50%, -50%)",
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+                border: `2px solid ${ANCHOR_ACCENT}`,
+                background: "rgba(7,20,28,0.95)",
+                boxShadow: "0 0 10px rgba(61,246,255,0.9)",
+                cursor: "grab",
+                pointerEvents: "auto",
+                zIndex: 3,
+                padding: 0,
               }}
             />
             <div
@@ -949,6 +1083,21 @@ export default function InteractiveMode() {
               </div>
             </div>
           ))}
+          <div
+            style={{
+              background: "rgba(8,18,34,0.82)",
+              border: "1px solid rgba(92,232,255,0.28)",
+              borderRadius: 8,
+              padding: "6px 8px",
+            }}
+          >
+            <div style={{ fontSize: 9, color: "#5ce8ff", fontFamily: "sans-serif", letterSpacing: "0.08em" }}>
+              GAZE
+            </div>
+            <div style={{ fontSize: 12, color: "#e0ddd4", fontFamily: "sans-serif", fontWeight: 700 }}>
+              {isPromptKR ? gazeKr : gazeEn}
+            </div>
+          </div>
         </div>
       </div>
 
