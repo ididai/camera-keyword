@@ -6,15 +6,17 @@ import {
 } from "./promptNormalizer";
 
 export const SEGMENT_COLORS = {
-  subject: "#ffd166",
-  shot: "#7bdff2",
-  angle: "#b2f7ef",
-  composition: "#ffb86b",
-  framing: "#f7c6ff",
-  ratio: "#f7aef8",
+  subject: "#f4d35e",
+  shot: "#5b8cff",
+  angle: "#ff6b6b",
+  gaze: "#2ec4b6",
+  lighting: "#ff9f1c",
+  composition: "#9d4edd",
+  framing: "#70e000",
+  ratio: "#00c2ff",
 };
 
-export const DEFAULT_PROMPT_ORDER = ["subject", "shot", "angle", "composition", "framing"];
+export const DEFAULT_PROMPT_ORDER = ["subject", "shot", "angle", "lighting", "composition", "framing"];
 
 export function validatePromptInput({ promptLang, subjectKorean, subjectEnglish }) {
   const kr = normalizeSubjectInput(subjectKorean);
@@ -37,6 +39,7 @@ export function buildPromptSegments({
   height,
   direction,
   gaze,
+  lighting,
   composition,
   ratioFraming,
   arValue,
@@ -48,6 +51,7 @@ export function buildPromptSegments({
     { type: "angle", text: height },
     { type: "angle", text: direction },
     { type: "angle", text: gaze },
+    { type: "lighting", text: lighting },
     { type: "composition", text: composition },
     { type: "framing", text: ratioFraming },
   ].map((segment) => ({ ...segment, text: normalizeCameraTerm(segment.text) }));

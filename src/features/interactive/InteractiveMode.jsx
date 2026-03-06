@@ -103,6 +103,49 @@ function getCompositionKeyword(position, isKorean) {
   return "subject at lower-right third intersection";
 }
 
+function getLightingProfile(power) {
+  const p = clamp(power ?? 56, 0, 100);
+
+  if (p < 20) {
+    return {
+      kr: "로우키 조명, 단일 키 라이트, 네거티브 필, 깊은 그림자, 강한 명암 대비",
+      en: "cinematic low-key lighting, single key light, negative fill, deep shadows, high contrast",
+      shortKr: "로우키(강한 명암)",
+      shortEn: "low-key dramatic",
+    };
+  }
+  if (p < 40) {
+    return {
+      kr: "로우키 무드 조명, 제한된 필 라이트, 드라마틱 쉐도우 폴오프",
+      en: "moody low-key lighting, restrained fill light, dramatic shadow falloff",
+      shortKr: "무디 로우키",
+      shortEn: "moody low-key",
+    };
+  }
+  if (p < 60) {
+    return {
+      kr: "균형 잡힌 삼점 조명, 중성 노출, 자연스러운 명암",
+      en: "balanced three-point lighting, neutral exposure, natural contrast",
+      shortKr: "밸런스 조명",
+      shortEn: "balanced lighting",
+    };
+  }
+  if (p < 80) {
+    return {
+      kr: "하이키 소프트 조명, 넓은 필 라이트, 부드러운 그림자",
+      en: "high-key soft lighting, broad fill light, gentle shadows",
+      shortKr: "소프트 하이키",
+      shortEn: "soft high-key",
+    };
+  }
+  return {
+    kr: "밝은 하이키 스튜디오 조명, 소프트박스 확산광, 최소 그림자, 공기감 있는 노출",
+    en: "bright high-key studio lighting, softbox diffusion, minimal shadows, airy exposure",
+    shortKr: "밝은 하이키",
+    shortEn: "bright high-key",
+  };
+}
+
 export default function InteractiveMode() {
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1440,
@@ -242,6 +285,9 @@ export default function InteractiveMode() {
 
   const compositionKr = useMemo(() => getCompositionKeyword(subjectPos, true), [subjectPos]);
   const compositionEn = useMemo(() => getCompositionKeyword(subjectPos, false), [subjectPos]);
+  const lightingProfile = useMemo(() => getLightingProfile(lightPower), [lightPower]);
+  const lightingKeyword = isPromptKR ? lightingProfile.kr : lightingProfile.en;
+  const lightingChipLabel = isPromptKR ? lightingProfile.shortKr : lightingProfile.shortEn;
 
   const subjectForPrompt = isPromptKR ? (subjectKorean || subjectText.trim()) : subjectEnglish;
 
@@ -259,11 +305,12 @@ export default function InteractiveMode() {
         height: isPromptKR ? resolved.height.kr : resolved.height.en,
         direction: isPromptKR ? resolved.direction.kr : resolved.direction.en,
         gaze: isPromptKR ? gazeKr : gazeEn,
+        lighting: lightingKeyword,
         composition: isPromptKR ? compositionKr : compositionEn,
         ratioFraming: isPromptKR ? selectedAr.krFraming : selectedAr.enFraming,
         arValue: selectedAr.value,
       }),
-    [subjectForPrompt, isPromptKR, resolved, gazeKr, gazeEn, compositionKr, compositionEn, selectedAr],
+    [subjectForPrompt, isPromptKR, resolved, gazeKr, gazeEn, lightingKeyword, compositionKr, compositionEn, selectedAr],
   );
 
   const displayPrompt = toPromptText(promptSegments);
@@ -796,6 +843,12 @@ export default function InteractiveMode() {
             </button>
           </div>
 
+          <div style={{ textAlign: "center", fontSize: 11, color: "#7a808a", fontFamily: "sans-serif" }}>
+            {isPromptKR
+              ? "한글 주체를 입력한 뒤 번역하면 EN 프롬프트가 자동 정리됩니다."
+              : "Enter subject, then translate Korean text to keep EN prompt clean."}
+          </div>
+
           {translateError ? (
             <div style={{ textAlign: "center", fontSize: 12, color: "#ff9ab6", fontFamily: "sans-serif" }}>{translateError}</div>
           ) : null}
@@ -827,7 +880,7 @@ export default function InteractiveMode() {
             pointerEvents: "none",
           }}
         >
-          드래그로 카메라 조정 · 휠로 거리 조정 · 우측 슬라이더로 광원 조절
+          드래그로 카메라 조정 · 휠로 거리 조정 · 우측 슬라이더 조명은 프롬프트에도 반영
         </div>
 
         <div
@@ -1070,7 +1123,9 @@ export default function InteractiveMode() {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 9, color: "#ffd166", fontFamily: "sans-serif", fontWeight: 700 }}>밝게</span>
+            <span style={{ fontSize: 9, color: SEGMENT_COLORS.lighting, fontFamily: "sans-serif", fontWeight: 700 }}>
+              조명
+            </span>
             <input
               type="range"
               min="0"
@@ -1083,11 +1138,24 @@ export default function InteractiveMode() {
                 width: 20,
                 height: 140,
                 cursor: "pointer",
-                accentColor: "#ffd166",
+                accentColor: SEGMENT_COLORS.lighting,
               }}
             />
-            <span style={{ fontSize: 9, color: "#ffd166", fontFamily: "sans-serif", fontWeight: 700 }}>
-              {lightPower}%
+            <span style={{ fontSize: 9, color: SEGMENT_COLORS.lighting, fontFamily: "sans-serif", fontWeight: 700 }}>
+              {isPromptKR ? "어둡게↕밝게" : "dark↕bright"}
+            </span>
+            <span
+              style={{
+                maxWidth: 90,
+                textAlign: "center",
+                fontSize: 9,
+                color: "#ffd8a8",
+                fontFamily: "sans-serif",
+                fontWeight: 700,
+                lineHeight: 1.3,
+              }}
+            >
+              {lightingChipLabel}
             </span>
           </div>
         </div>
@@ -1100,13 +1168,14 @@ export default function InteractiveMode() {
             display: "flex",
             gap: 6,
             flexWrap: "wrap",
-            maxWidth: isMobile ? "calc(100% - 112px)" : 640,
+            maxWidth: isMobile ? "calc(100% - 124px)" : 740,
           }}
         >
           {[
             { label: "SHOT", type: "shot", value: isPromptKR ? resolved.shot.kr : resolved.shot.en },
             { label: "ANGLE", type: "angle", value: isPromptKR ? resolved.height.kr : resolved.height.en },
             { label: "DIRECTION", type: "angle", value: isPromptKR ? resolved.direction.kr : resolved.direction.en },
+            { label: "LIGHT", type: "lighting", value: lightingChipLabel },
             { label: "POSITION", type: "composition", value: isPromptKR ? compositionKr : compositionEn },
           ].map((item) => {
             const color = SEGMENT_COLORS[item.type] || "#5ce8ff";
@@ -1131,8 +1200,8 @@ export default function InteractiveMode() {
           })}
           <div
             style={{
-              background: withAlpha(SEGMENT_COLORS.angle, 0.08),
-              border: `1px solid ${withAlpha(SEGMENT_COLORS.angle, 0.5)}`,
+              background: withAlpha(SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle, 0.08),
+              border: `1px solid ${withAlpha(SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle, 0.5)}`,
               borderRadius: 8,
               padding: "6px 8px",
             }}
@@ -1140,14 +1209,21 @@ export default function InteractiveMode() {
             <div
               style={{
                 fontSize: 9,
-                color: SEGMENT_COLORS.angle,
+                color: SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle,
                 fontFamily: "sans-serif",
                 letterSpacing: "0.08em",
               }}
             >
               GAZE
             </div>
-            <div style={{ fontSize: 12, color: SEGMENT_COLORS.angle, fontFamily: "sans-serif", fontWeight: 700 }}>
+            <div
+              style={{
+                fontSize: 12,
+                color: SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle,
+                fontFamily: "sans-serif",
+                fontWeight: 700,
+              }}
+            >
               {isPromptKR ? gazeKr : gazeEn}
             </div>
           </div>
