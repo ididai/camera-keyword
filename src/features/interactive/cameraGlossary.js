@@ -148,12 +148,8 @@ export const ANGLE_PRESETS = [
 ];
 
 export const AR_PRESETS = [
-  { id: "ar916", label: "9:16", value: "9:16" },
-  { id: "ar45", label: "4:5", value: "4:5" },
-  { id: "ar34", label: "3:4", value: "3:4" },
-  { id: "ar11", label: "1:1", value: "1:1" },
-  { id: "ar43", label: "4:3", value: "4:3" },
-  { id: "ar169", label: "16:9", value: "16:9" },
-  { id: "ar21", label: "2:1", value: "2:1" },
-  { id: "ar239", label: "2.39:1", value: "2.39:1" },
+  { id: "ar916", label: "9:16", value: "9:16", krFraming: "세로 프레이밍", enFraming: "vertical framing" },
+  { id: "ar11", label: "1:1", value: "1:1", krFraming: "정사각 프레이밍", enFraming: "square framing" },
+  { id: "ar45", label: "4:5", value: "4:5", krFraming: "세로 포트레이트 프레이밍", enFraming: "portrait framing" },
+  { id: "ar169", label: "16:9", value: "16:9", krFraming: "가로 시네마 프레이밍", enFraming: "cinematic wide framing" },
 ];

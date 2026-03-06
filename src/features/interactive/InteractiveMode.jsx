@@ -115,6 +115,14 @@ export default function InteractiveMode() {
   };
 
   const selectedAr = AR_PRESETS.find((item) => item.id === arPresetId);
+  const selectedAspectRatio = useMemo(() => {
+    const ratioValue = selectedAr?.value || "9:16";
+    const [wStr, hStr] = ratioValue.split(":");
+    const w = Number(wStr);
+    const h = Number(hStr);
+    if (!w || !h) return "9 / 16";
+    return `${w} / ${h}`;
+  }, [selectedAr]);
 
   const resolved = useMemo(() => resolveKeywords(phi, theta, r, subject), [phi, theta, r, subject]);
   const isPromptKR = promptLang === "kr";
@@ -138,6 +146,7 @@ export default function InteractiveMode() {
         height: isPromptKR ? resolved.height.kr : resolved.height.en,
         direction: isPromptKR ? resolved.direction.kr : resolved.direction.en,
         gaze: isPromptKR ? gazeKr : gazeEn,
+        ratioFraming: isPromptKR ? selectedAr?.krFraming : selectedAr?.enFraming,
         arValue: selectedAr?.value || "",
       }),
     [subjectForPrompt, isPromptKR, resolved, gazeKr, gazeEn, selectedAr],
@@ -573,6 +582,9 @@ export default function InteractiveMode() {
         >
           ✦ RATIO
         </span>
+        <span style={{ fontSize: 11, color: "#777", fontFamily: "sans-serif", marginRight: 4 }}>
+          {isPromptKR ? "비율 프레임 미리보기" : "ratio frame preview"}
+        </span>
         {AR_PRESETS.map((preset) => {
           const isOn = arPresetId === preset.id;
           return (
@@ -606,6 +618,26 @@ export default function InteractiveMode() {
         }}
       >
         <div ref={mountRef} style={{ width: "100%", height: "100%", cursor: "grab" }} />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "grid",
+            placeItems: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              width: "min(82%, 560px)",
+              maxHeight: "78%",
+              aspectRatio: selectedAspectRatio,
+              border: "1px dashed rgba(241,158,184,0.8)",
+              borderRadius: 8,
+              boxShadow: "0 0 0 1px rgba(0,0,0,0.4) inset",
+            }}
+          />
+        </div>
 
         <div
           style={{
