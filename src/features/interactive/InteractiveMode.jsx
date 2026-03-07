@@ -16,8 +16,11 @@ import { getInteractiveSettings, patchInteractiveSettings } from "./stores/inter
 import { initAnalytics, trackEvent } from "../analytics/eventLogger";
 
 const PERSON_SUBJECT = SUBJECT_TYPES.find((item) => item.id === "person") ?? SUBJECT_TYPES[0];
-const ANCHOR_ACCENT = "#3df6ff";
-const ANCHOR_ACCENT_SOFT = "rgba(61,246,255,0.28)";
+const RATIO_ACCENT = SEGMENT_COLORS.ratio || "#3df6ff";
+const POSITION_ACCENT = SEGMENT_COLORS.composition || "#b388ff";
+const POSITION_ACCENT_SOFT = withAlpha(POSITION_ACCENT, 0.36);
+const GAZE_ACCENT = SEGMENT_COLORS.gaze || "#2ec4b6";
+const FACE_ANCHOR_OFFSET = 0.24;
 const GAZE_RADIUS_MIN = 28;
 const GAZE_RADIUS_MAX = 84;
 
@@ -33,6 +36,12 @@ function withAlpha(hexColor, alpha) {
   const g = Number.parseInt(raw.slice(2, 4), 16);
   const b = Number.parseInt(raw.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function toColorInt(hexColor, fallback) {
+  const raw = String(hexColor || "").replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(raw)) return fallback;
+  return Number.parseInt(raw, 16);
 }
 
 function parseRatio(value) {
@@ -115,6 +124,8 @@ export default function InteractiveMode() {
   const [subjectEnglish, setSubjectEnglish] = useState("");
   const [translating, setTranslating] = useState(false);
   const [translateError, setTranslateError] = useState("");
+  const [isSubjectLocked, setIsSubjectLocked] = useState(false);
+  const [lockedSubject, setLockedSubject] = useState({ kr: "", en: "" });
 
   const [promptLang, setPromptLang] = useState("en");
   const [includeAngleInPrompt, setIncludeAngleInPrompt] = useState(true);
@@ -280,12 +291,16 @@ export default function InteractiveMode() {
   const compositionKr = useMemo(() => getCompositionKeyword(subjectPos, true), [subjectPos]);
   const compositionEn = useMemo(() => getCompositionKeyword(subjectPos, false), [subjectPos]);
 
-  const subjectForPrompt = isPromptKR ? (subjectKorean || subjectText.trim()) : subjectEnglish;
+  const activeSubjectKorean = isSubjectLocked ? lockedSubject.kr : subjectKorean || subjectText.trim();
+  const activeSubjectEnglish = isSubjectLocked ? lockedSubject.en : subjectEnglish;
+  const subjectForPrompt = isPromptKR
+    ? activeSubjectKorean || activeSubjectEnglish
+    : activeSubjectEnglish || activeSubjectKorean;
 
   const promptValidationError = validatePromptInput({
     promptLang,
-    subjectKorean: subjectKorean || subjectText,
-    subjectEnglish,
+    subjectKorean: activeSubjectKorean,
+    subjectEnglish: activeSubjectEnglish,
   });
 
   const promptSegments = useMemo(
@@ -338,8 +353,9 @@ export default function InteractiveMode() {
     const rect = frameRef.current.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
 
+    const faceY = clamp(subjectPosRef.current.y - FACE_ANCHOR_OFFSET, -1, 1);
     const anchorX = rect.left + ((subjectPosRef.current.x + 1) / 2) * rect.width;
-    const anchorY = rect.top + ((subjectPosRef.current.y + 1) / 2) * rect.height;
+    const anchorY = rect.top + ((faceY + 1) / 2) * rect.height;
     const radius = getGazeRadius({ width: rect.width, height: rect.height });
 
     let dx = clientX - anchorX;
@@ -393,6 +409,12 @@ export default function InteractiveMode() {
   };
 
   const translateSubject = async () => {
+    if (isSubjectLocked) {
+      setTranslateError("주체 고정이 켜져 있어 번역할 수 없습니다.");
+      trackEvent("subject_translate_blocked", { reason: "subject_locked" });
+      return;
+    }
+
     const value = subjectText.trim();
 
     if (!value) {
@@ -624,6 +646,26 @@ export default function InteractiveMode() {
     trackEvent("prompt_language_changed", { lang: nextLang });
   };
 
+  const handleToggleSubjectLock = () => {
+    if (!isSubjectLocked) {
+      const kr = String(subjectKorean || subjectText || "").trim();
+      const en = String(subjectEnglish || (!hasKorean(kr) ? kr : "")).trim();
+      setLockedSubject({ kr, en });
+      setIsSubjectLocked(true);
+      setTranslateError("");
+      trackEvent("subject_lock_changed", {
+        locked: true,
+        hasKoreanSubject: Boolean(kr),
+        hasEnglishSubject: Boolean(en),
+      });
+      return;
+    }
+
+    setIsSubjectLocked(false);
+    setTranslateError("");
+    trackEvent("subject_lock_changed", { locked: false });
+  };
+
   const handleToggleAngleInPrompt = () => {
     setIncludeAngleInPrompt((prev) => {
       const next = !prev;
@@ -681,7 +723,7 @@ export default function InteractiveMode() {
 
       const sphereGeo = new THREE.SphereGeometry(2.2, 24, 18);
       const sphereMat = new THREE.MeshBasicMaterial({
-        color: 0x1a3a6a,
+        color: toColorInt(SEGMENT_COLORS.shot, 0x1a3a6a),
         wireframe: true,
         transparent: true,
         opacity: 0.25,
@@ -689,7 +731,7 @@ export default function InteractiveMode() {
       scene.add(new THREE.Mesh(sphereGeo, sphereMat));
 
       const innerMat = new THREE.MeshBasicMaterial({
-        color: 0x0a1a3a,
+        color: toColorInt(SEGMENT_COLORS.shot, 0x0a1a3a),
         transparent: true,
         opacity: 0.15,
         side: THREE.DoubleSide,
@@ -828,8 +870,11 @@ export default function InteractiveMode() {
   }, []);
 
   const gazeRadius = useMemo(() => getGazeRadius(frameRect), [frameRect]);
-  const anchorPercentX = ((subjectPos.x + 1) / 2) * 100;
-  const anchorPercentY = ((subjectPos.y + 1) / 2) * 100;
+  const positionPercentX = ((subjectPos.x + 1) / 2) * 100;
+  const positionPercentY = ((subjectPos.y + 1) / 2) * 100;
+  const faceAnchorY = clamp(subjectPos.y - FACE_ANCHOR_OFFSET, -1, 1);
+  const facePercentX = positionPercentX;
+  const facePercentY = ((faceAnchorY + 1) / 2) * 100;
   const gazeDx = gazeVector.x * gazeRadius;
   const gazeDy = gazeVector.y * gazeRadius;
   const gazeLength = Math.hypot(gazeDx, gazeDy);
@@ -903,6 +948,7 @@ export default function InteractiveMode() {
               type="text"
               value={subjectText}
               onChange={(event) => {
+                if (isSubjectLocked) return;
                 const value = event.target.value;
                 setSubjectText(value);
                 setSubjectKorean(value.trim());
@@ -912,16 +958,17 @@ export default function InteractiveMode() {
               onKeyDown={(event) => {
                 if (event.key === "Enter") translateSubject();
               }}
+              readOnly={isSubjectLocked}
               placeholder={DEFAULT_SUBJECT_PROMPTS.person}
               style={{
                 flex: isMobile ? "1 1 100%" : "0 0 440px",
                 width: isMobile ? "100%" : 440,
                 maxWidth: "100%",
-                background: "#252525",
+                background: isSubjectLocked ? "#1f2530" : "#252525",
                 border: "1px solid #2a3a6a",
                 borderRadius: 8,
                 padding: "8px 12px",
-                color: "#e0ddd4",
+                color: isSubjectLocked ? "#9fb6d6" : "#e0ddd4",
                 fontSize: 13,
                 fontFamily: "sans-serif",
                 outline: "none",
@@ -930,16 +977,16 @@ export default function InteractiveMode() {
 
             <button
               onClick={translateSubject}
-              disabled={translating}
+              disabled={translating || isSubjectLocked}
               style={{
-                background: translating ? "#252525" : "#f19eb8",
+                background: translating || isSubjectLocked ? "#252525" : "#f19eb8",
                 border: "none",
                 borderRadius: 7,
-                color: translating ? "#777" : "#1a1a1a",
+                color: translating || isSubjectLocked ? "#777" : "#1a1a1a",
                 fontSize: 12,
                 fontWeight: 800,
                 padding: "7px 12px",
-                cursor: translating ? "default" : "pointer",
+                cursor: translating || isSubjectLocked ? "default" : "pointer",
                 fontFamily: "sans-serif",
                 whiteSpace: "nowrap",
               }}
@@ -948,22 +995,43 @@ export default function InteractiveMode() {
             </button>
 
             <button
-              onClick={() => {
-                setSubjectText("");
-                setSubjectKorean("");
-                setSubjectEnglish("");
-                setTranslateError("");
-              }}
+              onClick={handleToggleSubjectLock}
               style={{
-                background: "#252525",
-                border: "1px solid #2a3a6a",
+                background: isSubjectLocked ? withAlpha(SEGMENT_COLORS.subject, 0.25) : "#252525",
+                border: `1px solid ${isSubjectLocked ? SEGMENT_COLORS.subject : "#2a3a6a"}`,
                 borderRadius: 6,
-                color: "#888",
+                color: isSubjectLocked ? SEGMENT_COLORS.subject : "#9aa0ac",
                 fontSize: 12,
                 padding: "7px 10px",
                 cursor: "pointer",
                 fontFamily: "sans-serif",
                 whiteSpace: "nowrap",
+                fontWeight: 700,
+              }}
+            >
+              {isSubjectLocked ? "주체 고정 ON" : "주체 고정 OFF"}
+            </button>
+
+            <button
+              onClick={() => {
+                if (isSubjectLocked) return;
+                setSubjectText("");
+                setSubjectKorean("");
+                setSubjectEnglish("");
+                setTranslateError("");
+              }}
+              disabled={isSubjectLocked}
+              style={{
+                background: "#252525",
+                border: "1px solid #2a3a6a",
+                borderRadius: 6,
+                color: isSubjectLocked ? "#555" : "#888",
+                fontSize: 12,
+                padding: "7px 10px",
+                cursor: isSubjectLocked ? "default" : "pointer",
+                fontFamily: "sans-serif",
+                whiteSpace: "nowrap",
+                opacity: isSubjectLocked ? 0.55 : 1,
               }}
             >
               초기화
@@ -971,9 +1039,11 @@ export default function InteractiveMode() {
           </div>
 
           <div style={{ textAlign: "center", fontSize: 11, color: "#7a808a", fontFamily: "sans-serif" }}>
-            {isPromptKR
-              ? "한글 주체를 입력한 뒤 번역하면 EN 프롬프트가 자동 정리됩니다."
-              : "Enter subject, then translate Korean text to keep EN prompt clean."}
+            {isSubjectLocked
+              ? "주체 고정 상태에서는 카메라/구도만 바꿔 프롬프트를 조정할 수 있습니다."
+              : isPromptKR
+                ? "한글 주체를 입력한 뒤 번역하면 EN 프롬프트가 자동 정리됩니다."
+                : "Enter subject, then translate Korean text to keep EN prompt clean."}
           </div>
 
           {translateError ? (
@@ -1053,9 +1123,9 @@ export default function InteractiveMode() {
                 key={preset.id}
                 onClick={() => handleAspectRatioChange(preset.id)}
                 style={{
-                  background: isOn ? "#5ce8ff" : "transparent",
+                  background: isOn ? RATIO_ACCENT : "transparent",
                   color: isOn ? "#000" : "#9aa0ac",
-                  border: `1px solid ${isOn ? "#5ce8ff" : "rgba(255,255,255,0.20)"}`,
+                  border: `1px solid ${isOn ? RATIO_ACCENT : "rgba(255,255,255,0.20)"}`,
                   borderRadius: 3,
                   padding: "2px 7px",
                   cursor: "pointer",
@@ -1085,9 +1155,9 @@ export default function InteractiveMode() {
             style={{
               width: `${frameRect.width}px`,
               height: `${frameRect.height}px`,
-              border: `2px dashed ${ANCHOR_ACCENT}`,
+              border: `2px dashed ${RATIO_ACCENT}`,
               borderRadius: 8,
-              boxShadow: "0 0 0 1px rgba(0,0,0,0.35) inset, 0 0 20px rgba(61,246,255,0.16)",
+              boxShadow: `0 0 0 1px rgba(0,0,0,0.35) inset, 0 0 20px ${withAlpha(RATIO_ACCENT, 0.18)}`,
               pointerEvents: "auto",
               position: "relative",
               touchAction: "none",
@@ -1098,54 +1168,68 @@ export default function InteractiveMode() {
             <div
               style={{
                 position: "absolute",
-                left: `${anchorPercentX}%`,
-                top: `${anchorPercentY}%`,
+                left: `${positionPercentX}%`,
+                top: `${positionPercentY}%`,
                 transform: "translate(-50%, -50%)",
                 width: 22,
                 height: 22,
                 borderRadius: "50%",
-                border: `3px solid ${ANCHOR_ACCENT}`,
-                background: "rgba(61,246,255,0.22)",
-                boxShadow: "0 0 16px rgba(61,246,255,0.9), 0 0 0 4px rgba(10,19,30,0.65)",
+                border: `3px solid ${POSITION_ACCENT}`,
+                background: withAlpha(POSITION_ACCENT, 0.26),
+                boxShadow: `0 0 16px ${withAlpha(POSITION_ACCENT, 0.88)}, 0 0 0 4px rgba(10,19,30,0.65)`,
                 display: "grid",
                 placeItems: "center",
               }}
             >
-              <div style={{ width: 10, height: 2, borderRadius: 99, background: ANCHOR_ACCENT }} />
+              <div style={{ width: 10, height: 2, borderRadius: 99, background: POSITION_ACCENT }} />
               <div
                 style={{
                   position: "absolute",
                   width: 2,
                   height: 10,
                   borderRadius: 99,
-                  background: ANCHOR_ACCENT,
+                  background: POSITION_ACCENT,
                 }}
               />
             </div>
             <div
               style={{
                 position: "absolute",
-                left: `${anchorPercentX}%`,
-                top: `${anchorPercentY}%`,
+                left: `${positionPercentX}%`,
+                top: `${positionPercentY}%`,
                 transform: "translate(-50%, -50%)",
                 width: 34,
                 height: 34,
                 borderRadius: "50%",
-                border: `1px solid ${ANCHOR_ACCENT_SOFT}`,
-                boxShadow: `0 0 14px ${ANCHOR_ACCENT_SOFT}`,
+                border: `1px solid ${POSITION_ACCENT_SOFT}`,
+                boxShadow: `0 0 14px ${POSITION_ACCENT_SOFT}`,
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                left: `${facePercentX}%`,
+                top: `${facePercentY}%`,
+                transform: "translate(-50%, -50%)",
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                border: `2px solid ${GAZE_ACCENT}`,
+                background: withAlpha(GAZE_ACCENT, 0.22),
+                boxShadow: `0 0 12px ${withAlpha(GAZE_ACCENT, 0.85)}`,
               }}
             />
             {gazeLength > 2 ? (
               <div
                 style={{
                   position: "absolute",
-                  left: `${anchorPercentX}%`,
-                  top: `${anchorPercentY}%`,
+                  left: `${facePercentX}%`,
+                  top: `${facePercentY}%`,
                   transform: `translate(-50%, -50%) rotate(${gazeAngle}deg)`,
                   width: `${gazeLength}px`,
                   height: 2,
-                  background: ANCHOR_ACCENT,
-                  boxShadow: "0 0 8px rgba(61,246,255,0.8)",
+                  background: GAZE_ACCENT,
+                  boxShadow: `0 0 8px ${withAlpha(GAZE_ACCENT, 0.85)}`,
                   transformOrigin: "0 50%",
                   pointerEvents: "none",
                 }}
@@ -1155,15 +1239,15 @@ export default function InteractiveMode() {
               <div
                 style={{
                   position: "absolute",
-                  left: `calc(${anchorPercentX}% + ${gazeDx}px)`,
-                  top: `calc(${anchorPercentY}% + ${gazeDy}px)`,
+                  left: `calc(${facePercentX}% + ${gazeDx}px)`,
+                  top: `calc(${facePercentY}% + ${gazeDy}px)`,
                   width: 0,
                   height: 0,
                   borderTop: "6px solid transparent",
                   borderBottom: "6px solid transparent",
-                  borderLeft: `10px solid ${ANCHOR_ACCENT}`,
+                  borderLeft: `10px solid ${GAZE_ACCENT}`,
                   transform: `translate(-50%, -50%) rotate(${gazeAngle}deg)`,
-                  filter: "drop-shadow(0 0 6px rgba(61,246,255,0.8))",
+                  filter: `drop-shadow(0 0 6px ${withAlpha(GAZE_ACCENT, 0.86)})`,
                   pointerEvents: "none",
                 }}
               />
@@ -1175,15 +1259,15 @@ export default function InteractiveMode() {
               title={isPromptKR ? "시선 화살표 드래그" : "Drag gaze arrow"}
               style={{
                 position: "absolute",
-                left: `calc(${anchorPercentX}% + ${gazeDx}px)`,
-                top: `calc(${anchorPercentY}% + ${gazeDy}px)`,
+                left: `calc(${facePercentX}% + ${gazeDx}px)`,
+                top: `calc(${facePercentY}% + ${gazeDy}px)`,
                 transform: "translate(-50%, -50%)",
                 width: 16,
                 height: 16,
                 borderRadius: "50%",
-                border: `2px solid ${ANCHOR_ACCENT}`,
+                border: `2px solid ${GAZE_ACCENT}`,
                 background: "rgba(7,20,28,0.95)",
-                boxShadow: "0 0 10px rgba(61,246,255,0.9)",
+                boxShadow: `0 0 10px ${withAlpha(GAZE_ACCENT, 0.9)}`,
                 cursor: "grab",
                 pointerEvents: "auto",
                 zIndex: 3,
@@ -1198,7 +1282,7 @@ export default function InteractiveMode() {
                 transform: "translate(-50%, -50%)",
                 width: 2,
                 height: "100%",
-                background: ANCHOR_ACCENT_SOFT,
+                background: POSITION_ACCENT_SOFT,
               }}
             />
             <div
@@ -1209,7 +1293,7 @@ export default function InteractiveMode() {
                 transform: "translateY(-50%)",
                 width: "100%",
                 height: 2,
-                background: ANCHOR_ACCENT_SOFT,
+                background: POSITION_ACCENT_SOFT,
               }}
             />
           </div>
@@ -1262,20 +1346,20 @@ export default function InteractiveMode() {
           }}
         >
           {[
-            { label: "SHOT", type: "shot", value: isPromptKR ? resolved.shot.kr : resolved.shot.en },
+            { label: "샷", type: "shot", value: isPromptKR ? resolved.shot.kr : resolved.shot.en },
             {
-              label: "ANGLE",
-              type: "angle",
+              label: "앵글",
+              type: "height",
               value: isPromptKR ? resolved.height.kr : resolved.height.en,
               disabled: !includeAngleInPrompt,
             },
             {
-              label: "DIRECTION",
-              type: "angle",
+              label: "방향",
+              type: "direction",
               value: isPromptKR ? resolved.direction.kr : resolved.direction.en,
               disabled: !includeAngleInPrompt,
             },
-            { label: "POSITION", type: "composition", value: isPromptKR ? compositionKr : compositionEn },
+            { label: "포지션", type: "composition", value: isPromptKR ? compositionKr : compositionEn },
           ].map((item) => {
             const color = item.disabled ? "#6f7787" : SEGMENT_COLORS[item.type] || "#5ce8ff";
             return (
@@ -1305,11 +1389,11 @@ export default function InteractiveMode() {
           <div
             style={{
               background: withAlpha(
-                includeAngleInPrompt ? SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle : "#6f7787",
+                includeAngleInPrompt ? SEGMENT_COLORS.gaze : "#6f7787",
                 includeAngleInPrompt ? 0.08 : 0.05,
               ),
               border: `1px solid ${withAlpha(
-                includeAngleInPrompt ? SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle : "#6f7787",
+                includeAngleInPrompt ? SEGMENT_COLORS.gaze : "#6f7787",
                 includeAngleInPrompt ? 0.5 : 0.36,
               )}`,
               borderRadius: 8,
@@ -1319,17 +1403,17 @@ export default function InteractiveMode() {
             <div
               style={{
                 fontSize: 9,
-                color: includeAngleInPrompt ? SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle : "#6f7787",
+                color: includeAngleInPrompt ? SEGMENT_COLORS.gaze : "#6f7787",
                 fontFamily: "sans-serif",
                 letterSpacing: "0.08em",
               }}
             >
-              GAZE
+              시선
             </div>
             <div
               style={{
                 fontSize: 12,
-                color: includeAngleInPrompt ? SEGMENT_COLORS.gaze || SEGMENT_COLORS.angle : "#6f7787",
+                color: includeAngleInPrompt ? SEGMENT_COLORS.gaze : "#6f7787",
                 fontFamily: "sans-serif",
                 fontWeight: 700,
               }}
@@ -1408,9 +1492,9 @@ export default function InteractiveMode() {
             <button
               onClick={handleToggleAngleInPrompt}
               style={{
-                background: includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.angle, 0.22) : "transparent",
-                color: includeAngleInPrompt ? SEGMENT_COLORS.angle : "#7a8394",
-                border: `1px solid ${includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.angle, 0.88) : "#364054"}`,
+                background: includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.height, 0.22) : "transparent",
+                color: includeAngleInPrompt ? SEGMENT_COLORS.height : "#7a8394",
+                border: `1px solid ${includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.height, 0.88) : "#364054"}`,
                 borderRadius: 4,
                 padding: "2px 6px",
                 cursor: "pointer",
@@ -1419,7 +1503,7 @@ export default function InteractiveMode() {
                 fontWeight: 700,
               }}
             >
-              {includeAngleInPrompt ? "ANGLE ON" : "ANGLE OFF"}
+              {includeAngleInPrompt ? "앵글 ON" : "앵글 OFF"}
             </button>
           </div>
 
@@ -1474,7 +1558,7 @@ export default function InteractiveMode() {
             </>
           ) : (
             <span style={{ color: "#666", fontSize: 13, fontFamily: "sans-serif" }}>
-              주체를 입력하고 번역하면 프롬프트가 생성됩니다.
+              주체 없이도 프롬프트를 생성할 수 있습니다.
             </span>
           )}
 

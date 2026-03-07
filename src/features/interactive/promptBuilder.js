@@ -6,26 +6,34 @@ import {
 
 export const SEGMENT_COLORS = {
   subject: "#f4d35e",
-  shot: "#5b8cff",
-  angle: "#ff6b6b",
+  shot: "#4da3ff",
+  height: "#ff5d8f",
+  direction: "#ff9f1c",
   gaze: "#2ec4b6",
-  composition: "#9d4edd",
+  composition: "#b388ff",
   custom: "#ffb703",
   framing: "#70e000",
-  ratio: "#00c2ff",
+  ratio: "#3df6ff",
 };
 
-export const DEFAULT_PROMPT_ORDER = ["subject", "shot", "angle", "composition", "custom", "framing"];
+export const DEFAULT_PROMPT_ORDER = [
+  "subject",
+  "shot",
+  "height",
+  "direction",
+  "gaze",
+  "composition",
+  "custom",
+  "framing",
+];
 
 export function validatePromptInput({ promptLang, subjectKorean, subjectEnglish }) {
   const kr = normalizeSubjectInput(subjectKorean);
   const en = normalizeSubjectInput(subjectEnglish);
 
-  if (!kr && !en) {
-    return "주체를 먼저 입력해 주세요.";
-  }
-
-  if (promptLang === "en" && !en) {
+  // 주체를 비워도 카메라 키워드 프롬프트 복사는 허용한다.
+  // 다만 한글 주체가 있는데 EN 선택 시에는 번역 유도를 유지한다.
+  if (promptLang === "en" && kr && !en) {
     return "번역 버튼을 눌러 영어 주체를 생성해 주세요.";
   }
 
@@ -49,9 +57,9 @@ export function buildPromptSegments({
 
   if (includeAngle) {
     baseSegments.push(
-      { type: "angle", text: height },
-      { type: "angle", text: direction },
-      { type: "angle", text: gaze },
+      { type: "height", text: height },
+      { type: "direction", text: direction },
+      { type: "gaze", text: gaze },
     );
   }
 
