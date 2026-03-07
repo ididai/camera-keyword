@@ -12,6 +12,7 @@ import {
 import { detectAwkwardExpressions } from "./promptQuality";
 import { getPromptHistory, removePromptHistory, savePromptHistory } from "./historyStore";
 import { getUserPresets, removeUserPreset, renameUserPreset, saveUserPreset } from "./userPresetStore";
+import { getInteractiveSettings, patchInteractiveSettings } from "./stores/interactiveSettingsStore";
 import { initAnalytics, trackEvent } from "../analytics/eventLogger";
 
 const PERSON_SUBJECT = SUBJECT_TYPES.find((item) => item.id === "person") ?? SUBJECT_TYPES[0];
@@ -141,6 +142,7 @@ export default function InteractiveMode() {
   const isDraggingCamera = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
   const distanceTrackReadyRef = useRef(false);
+  const settingsHydratedRef = useRef(false);
 
   const phiRef = useRef(phi);
   const thetaRef = useRef(theta);
@@ -167,6 +169,22 @@ export default function InteractiveMode() {
     initAnalytics();
     trackEvent("interactive_mode_opened", { mode: "person_single" });
   }, []);
+
+  useEffect(() => {
+    const persisted = getInteractiveSettings();
+    if (persisted.customPromptHint) {
+      setCustomPromptHint(persisted.customPromptHint);
+    }
+    settingsHydratedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!settingsHydratedRef.current) return;
+    const timeout = setTimeout(() => {
+      patchInteractiveSettings({ customPromptHint });
+    }, 180);
+    return () => clearTimeout(timeout);
+  }, [customPromptHint]);
 
   useEffect(() => {
     const el = viewerRef.current;

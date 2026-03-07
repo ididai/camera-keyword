@@ -42,12 +42,16 @@ function sanitizeSettings(input) {
     return { ...DEFAULT_INTERACTIVE_SETTINGS };
   }
 
+  const updatedAt = Number(input.updatedAt);
   return {
     poseId: normalizeId(input.poseId),
     compositionId: normalizeId(input.compositionId),
     subjectCount: normalizeSubjectCount(input.subjectCount),
     customPromptHint: normalizeHint(input.customPromptHint),
-    updatedAt: Number(input.updatedAt) || Date.now(),
+    updatedAt:
+      Number.isFinite(updatedAt) && updatedAt > 0
+        ? Math.round(updatedAt)
+        : DEFAULT_INTERACTIVE_SETTINGS.updatedAt,
   };
 }
 
@@ -98,4 +102,3 @@ export function clearInteractiveSettings() {
   }
   return { ...DEFAULT_INTERACTIVE_SETTINGS };
 }
-
