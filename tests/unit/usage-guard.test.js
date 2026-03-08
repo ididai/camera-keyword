@@ -4,6 +4,22 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 
 function loadUsageModule() {
+  const redisPath = require.resolve("../../api/_redis.js");
+  delete require.cache[redisPath];
+  const modulePath = require.resolve("../../api/_usage.js");
+  delete require.cache[modulePath];
+  return require(modulePath);
+}
+
+function loadUsageModuleWithRedisStub(redisStub) {
+  const redisPath = require.resolve("../../api/_redis.js");
+  delete require.cache[redisPath];
+  /** @type {any} */ (require.cache)[redisPath] = {
+    id: redisPath,
+    filename: redisPath,
+    loaded: true,
+    exports: redisStub,
+  };
   const modulePath = require.resolve("../../api/_usage.js");
   delete require.cache[modulePath];
   return require(modulePath);
@@ -98,5 +114,25 @@ describe("usage guard", () => {
     expect(summary.failures).toBe(1);
     expect(summary.failureRate).toBeGreaterThan(0);
     expect(summary.estimatedTokens).toBeGreaterThan(0);
+  });
+
+  it("uses distributed budget guard when Upstash is configured", async () => {
+    process.env.USAGE_MAX_MODEL_CALLS_TRANSLATE = "3";
+    process.env.USAGE_TOKEN_BUDGET_PER_MINUTE = "100";
+
+    const usage = loadUsageModuleWithRedisStub({
+      hasUpstash: () => true,
+      runUpstashPipeline: async () => [{ result: 1000 }, { result: "OK" }],
+    });
+    const ctx = usage.createRequestUsageContext("translate");
+
+    const result = await usage.reserveModelCallBudget(ctx, {
+      provider: "gemini",
+      promptText: "camera prompt",
+      maxOutputTokens: 128,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(429);
   });
 });
