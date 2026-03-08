@@ -2,6 +2,8 @@ import {
   hasKorean,
   normalizeCameraTerm,
   normalizeSubjectInput,
+  sanitizeCustomPromptHint,
+  sanitizeSubjectCameraDirectives,
 } from "./promptNormalizer";
 
 export const SEGMENT_COLORS = {
@@ -9,11 +11,11 @@ export const SEGMENT_COLORS = {
   shot: "#4da3ff",
   height: "#ff5d8f",
   direction: "#ff9f1c",
-  gaze: "#2ec4b6",
+  gaze: "#3df6d0",
   composition: "#b388ff",
   custom: "#ffb703",
-  framing: "#70e000",
-  ratio: "#3df6ff",
+  framing: "#ffffff",
+  ratio: "#ffffff",
 };
 
 export const DEFAULT_PROMPT_ORDER = [
@@ -21,8 +23,8 @@ export const DEFAULT_PROMPT_ORDER = [
   "shot",
   "height",
   "direction",
-  "gaze",
   "composition",
+  "gaze",
   "custom",
   "framing",
 ];
@@ -52,7 +54,8 @@ export function buildPromptSegments({
   arValue,
   includeAngle = true,
 }) {
-  const subject = normalizeSubjectInput(subjectText);
+  const subject = sanitizeSubjectCameraDirectives(subjectText);
+  const refinedCustomHint = sanitizeCustomPromptHint(custom);
   const baseSegments = [{ type: "subject", text: subject }, { type: "shot", text: shot }];
 
   if (includeAngle) {
@@ -63,15 +66,17 @@ export function buildPromptSegments({
     );
   }
 
-  if (custom) {
-    baseSegments.push({ type: "custom", text: custom });
+  if (refinedCustomHint) {
+    baseSegments.push({ type: "custom", text: refinedCustomHint });
   }
 
   baseSegments.push({ type: "composition", text: composition }, { type: "framing", text: ratioFraming });
 
   const normalizedSegments = baseSegments.map((segment) => ({
     ...segment,
-    text: normalizeCameraTerm(segment.text),
+    text: segment.type === "subject"
+      ? normalizeSubjectInput(segment.text)
+      : normalizeCameraTerm(segment.text),
   }));
 
   // 타입은 유지한 채 중복 텍스트만 제거
@@ -79,7 +84,7 @@ export function buildPromptSegments({
   const dedupedByType = [];
   for (const segment of normalizedSegments) {
     if (!segment.text) continue;
-    const key = segment.text.toLowerCase();
+    const key = `${segment.type}:${segment.text.toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
     dedupedByType.push(segment);
@@ -94,6 +99,90 @@ export function buildPromptSegments({
 
   if (arValue) ordered.push({ type: "ratio", text: `--ar ${arValue}` });
   return ordered;
+}
+
+function normalizeUpgradeCustom(customText, subjectText) {
+  const custom = sanitizeCustomPromptHint(customText || "");
+  if (!custom) return "";
+
+  const subject = normalizeSubjectInput(subjectText || "");
+  if (!subject) return custom;
+
+  if (custom.toLowerCase() === subject.toLowerCase()) return "";
+  return custom;
+}
+
+function uniqueNonEmpty(values) {
+  const seen = new Set();
+  const next = [];
+  for (const value of values) {
+    const text = normalizeCameraTerm(String(value || ""));
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    next.push(text);
+  }
+  return next;
+}
+
+function buildCameraLockClause({
+  shot,
+  height,
+  direction,
+  gaze,
+  composition,
+  ratioFraming,
+  includeAngle,
+}) {
+  const core = [shot, composition, ratioFraming];
+  const angleParts = includeAngle ? [height, direction, gaze] : [];
+  const parts = uniqueNonEmpty([...core, ...angleParts]);
+  if (!parts.length) return "";
+
+  const isKorean = parts.some((part) => hasKorean(part));
+  return isKorean
+    ? `카메라 의도 고정 (${parts.join(" | ")})`
+    : `camera intent locked (${parts.join(" | ")})`;
+}
+
+export function buildUpgradedPromptSegments({
+  subjectText,
+  shot,
+  height,
+  direction,
+  gaze,
+  composition,
+  custom,
+  ratioFraming,
+  arValue,
+  includeAngle = true,
+}) {
+  const refinedSubject = sanitizeSubjectCameraDirectives(subjectText || "");
+  const refinedCustomBase = normalizeUpgradeCustom(custom, refinedSubject);
+  const cameraLockClause = buildCameraLockClause({
+    shot,
+    height,
+    direction,
+    gaze,
+    composition,
+    ratioFraming,
+    includeAngle,
+  });
+  const refinedCustom = [refinedCustomBase, cameraLockClause].filter(Boolean).join(" / ");
+
+  return buildPromptSegments({
+    subjectText: refinedSubject,
+    shot,
+    height,
+    direction,
+    gaze,
+    composition,
+    custom: refinedCustom,
+    ratioFraming,
+    arValue,
+    includeAngle,
+  });
 }
 
 export function toPromptText(segments) {

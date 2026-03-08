@@ -3,7 +3,7 @@ import { buildSubjectObject } from "./buildSubjectObject";
 import { resolveKeywords } from "./keywordResolver";
 import { AR_PRESETS, DEFAULT_SUBJECT_PROMPTS, SUBJECT_TYPES } from "./cameraGlossary";
 import {
-  SEGMENT_COLORS,
+  SEGMENT_COLORS as BASE_SEGMENT_COLORS,
   buildUpgradedPromptSegments,
   buildPromptSegments,
   hasKorean,
@@ -27,57 +27,25 @@ import {
 } from "./userPresetStore";
 import { getInteractiveSettings, patchInteractiveSettings } from "./stores/interactiveSettingsStore";
 import { initAnalytics, trackEvent } from "../analytics/eventLogger";
+import { UI_DESIGN_SEGMENT_COLORS, UI_DESIGN_TOKENS } from "./uiDesignTokens";
 import { requestPromptRefine, requestSubjectTranslate } from "./promptApiClient";
 import { loadThreeRuntime } from "./threeRuntime";
 
+const SEGMENT_COLORS = { ...BASE_SEGMENT_COLORS, ...UI_DESIGN_SEGMENT_COLORS };
+const UI = UI_DESIGN_TOKENS;
+const SHOT_ACCENT = SEGMENT_COLORS.shot;
+const POSITION_ACCENT = SEGMENT_COLORS.composition;
+const GAZE_ACCENT = SEGMENT_COLORS.gaze;
+const RATIO_ACCENT = SEGMENT_COLORS.ratio;
+
 const PERSON_SUBJECT = SUBJECT_TYPES.find((item) => item.id === "person") ?? SUBJECT_TYPES[0];
-const SHOT_ACCENT = SEGMENT_COLORS.shot || "#4da3ff";
-const RATIO_ACCENT = SEGMENT_COLORS.ratio || "#ffffff";
-const POSITION_ACCENT = SEGMENT_COLORS.composition || "#b388ff";
 const POSITION_ACCENT_SOFT = withAlpha(POSITION_ACCENT, 0.36);
-const HEIGHT_ACCENT = SEGMENT_COLORS.height || "#ff5d8f";
-const DIRECTION_ACCENT = SEGMENT_COLORS.direction || "#ff9f1c";
-const GAZE_ACCENT = SEGMENT_COLORS.gaze || "#3df6d0";
-const FACE_FALLBACK_OFFSET = 0.38;
-const FACE_MODEL_ANCHOR = { x: 0, y: 0.85, z: 0.18 };
-const SUBJECT_POSITION_SCALE = 1.1;
-const SUBJECT_POS_MIN = -1.8;
-const SUBJECT_POS_MAX = 1.8;
-const CAMERA_FOV_DEG = 45;
-const CAMERA_DISTANCE_NEAR = 1.45;
-const CAMERA_DISTANCE_FAR = 7.4;
-const CAMERA_DISTANCE_CURVE = 1.8;
-const CAMERA_LOOKAT_Y_NEAR = 0.48;
-const CAMERA_LOOKAT_Y_FAR = 0.0;
-const CAMERA_LOOKAT_Y_CURVE = 1.1;
-const SPHERE_RADIUS = 1.9;
+const FACE_ANCHOR_OFFSET = 0.24;
 const GAZE_RADIUS_MIN = 28;
 const GAZE_RADIUS_MAX = 84;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
-}
-
-function dot3(a, b) {
-  return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-function cross3(a, b) {
-  return {
-    x: a.y * b.z - a.z * b.y,
-    y: a.z * b.x - a.x * b.z,
-    z: a.x * b.y - a.y * b.x,
-  };
-}
-
-function normalize3(vector) {
-  const length = Math.hypot(vector.x, vector.y, vector.z);
-  if (length <= 1e-6) return null;
-  return {
-    x: vector.x / length,
-    y: vector.y / length,
-    z: vector.z / length,
-  };
 }
 
 function withAlpha(hexColor, alpha) {
@@ -102,193 +70,8 @@ function parseRatio(value) {
   return w / h;
 }
 
-function getAspectFitRect(containerWidth, containerHeight, aspectRatio) {
-  const safeWidth = Math.max(1, containerWidth || 1);
-  const safeHeight = Math.max(1, containerHeight || 1);
-  const safeAspect = Math.max(0.01, aspectRatio || 1);
-
-  let width = safeWidth;
-  let height = width / safeAspect;
-
-  if (height > safeHeight) {
-    height = safeHeight;
-    width = height * safeAspect;
-  }
-
-  return {
-    width: Math.round(width),
-    height: Math.round(height),
-  };
-}
-
-function getCameraDistance(r) {
-  const t = clamp(1 - r, 0, 1);
-  const curved = Math.pow(t, CAMERA_DISTANCE_CURVE);
-  return CAMERA_DISTANCE_NEAR + curved * (CAMERA_DISTANCE_FAR - CAMERA_DISTANCE_NEAR);
-}
-
-function getCameraLookAtY(r) {
-  const t = clamp(1 - r, 0, 1);
-  const curved = Math.pow(t, CAMERA_LOOKAT_Y_CURVE);
-  return CAMERA_LOOKAT_Y_FAR + curved * (CAMERA_LOOKAT_Y_NEAR - CAMERA_LOOKAT_Y_FAR);
-}
-
 function getGazeRadius(frameRect) {
   return clamp(Math.min(frameRect.width, frameRect.height) * 0.2, GAZE_RADIUS_MIN, GAZE_RADIUS_MAX);
-}
-
-function getCameraBasis({ phi, theta, r }) {
-  const pRad = (phi * Math.PI) / 180;
-  const tRad = (theta * Math.PI) / 180;
-  const viewR = getCameraDistance(r);
-
-  const cameraPos = {
-    x: viewR * Math.sin(pRad) * Math.sin(tRad),
-    y: viewR * Math.cos(pRad),
-    z: viewR * Math.sin(pRad) * Math.cos(tRad),
-  };
-  const target = { x: 0, y: getCameraLookAtY(r), z: 0 };
-
-  const upHint =
-    phi < 5 || phi > 175
-      ? { x: 0, y: 0, z: phi < 90 ? -1 : 1 }
-      : { x: 0, y: 1, z: 0 };
-
-  const forward = normalize3({
-    x: target.x - cameraPos.x,
-    y: target.y - cameraPos.y,
-    z: target.z - cameraPos.z,
-  });
-  if (!forward) return null;
-
-  let right = normalize3(cross3(forward, upHint));
-  if (!right) {
-    right = { x: 1, y: 0, z: 0 };
-  }
-
-  let cameraUp = normalize3(cross3(right, forward));
-  if (!cameraUp) {
-    cameraUp = upHint;
-  }
-
-  return { cameraPos, forward, right, cameraUp };
-}
-
-function projectWorldToNdc({ point, phi, theta, r, aspect }) {
-  const basis = getCameraBasis({ phi, theta, r });
-  if (!basis) return null;
-
-  const { cameraPos, forward, right, cameraUp } = basis;
-
-  const rel = {
-    x: point.x - cameraPos.x,
-    y: point.y - cameraPos.y,
-    z: point.z - cameraPos.z,
-  };
-
-  const zCam = dot3(rel, forward);
-  if (zCam <= 1e-3) return null;
-
-  const xCam = dot3(rel, right);
-  const yCam = dot3(rel, cameraUp);
-  const f = 1 / Math.tan(((CAMERA_FOV_DEG || 45) * Math.PI) / 360);
-  const safeAspect = Math.max(0.01, aspect || 1);
-
-  return {
-    x: (xCam * f) / (safeAspect * zCam),
-    y: (yCam * f) / zCam,
-  };
-}
-
-function getProjectedFramePercent({ worldPoint, phi, theta, r, viewerSize, frameRect, fallback }) {
-  if (!viewerSize.width || !viewerSize.height || !frameRect.width || !frameRect.height) {
-    return fallback || { x: 50, y: 50 };
-  }
-
-  const ndc = projectWorldToNdc({
-    point: worldPoint,
-    phi,
-    theta,
-    r,
-    aspect: viewerSize.width / viewerSize.height,
-  });
-  if (!ndc) return fallback || { x: 50, y: 50 };
-
-  const viewerX = ((ndc.x + 1) / 2) * viewerSize.width;
-  const viewerY = ((1 - ndc.y) / 2) * viewerSize.height;
-  const frameLeft = (viewerSize.width - frameRect.width) / 2;
-  const frameTop = (viewerSize.height - frameRect.height) / 2;
-
-  const x = ((viewerX - frameLeft) / frameRect.width) * 100;
-  const y = ((viewerY - frameTop) / frameRect.height) * 100;
-
-  return {
-    x: clamp(x, -25, 125),
-    y: clamp(y, -25, 125),
-  };
-}
-
-function getWorldPointOnSubjectPlane({ percentX, percentY, phi, theta, r, viewerSize, frameRect }) {
-  if (!viewerSize.width || !viewerSize.height || !frameRect.width || !frameRect.height) return null;
-
-  const frameLeft = (viewerSize.width - frameRect.width) / 2;
-  const frameTop = (viewerSize.height - frameRect.height) / 2;
-  const viewerX = frameLeft + (clamp(percentX, 0, 100) / 100) * frameRect.width;
-  const viewerY = frameTop + (clamp(percentY, 0, 100) / 100) * frameRect.height;
-
-  const ndcX = (viewerX / viewerSize.width) * 2 - 1;
-  const ndcY = 1 - (viewerY / viewerSize.height) * 2;
-  const safeAspect = Math.max(0.01, viewerSize.width / viewerSize.height);
-  const f = 1 / Math.tan((CAMERA_FOV_DEG * Math.PI) / 360);
-
-  const basis = getCameraBasis({ phi, theta, r });
-  if (!basis) return null;
-
-  const { cameraPos, forward, right, cameraUp } = basis;
-  const ray = normalize3({
-    x: forward.x + right.x * ((ndcX * safeAspect) / f) + cameraUp.x * (ndcY / f),
-    y: forward.y + right.y * ((ndcX * safeAspect) / f) + cameraUp.y * (ndcY / f),
-    z: forward.z + right.z * ((ndcX * safeAspect) / f) + cameraUp.z * (ndcY / f),
-  });
-
-  if (!ray || Math.abs(ray.z) < 1e-5) return null;
-  const t = -cameraPos.z / ray.z;
-  if (!Number.isFinite(t) || t <= 0) return null;
-
-  return {
-    x: cameraPos.x + ray.x * t,
-    y: cameraPos.y + ray.y * t,
-    z: 0,
-  };
-}
-
-function getFaceAnchorPercent({ subjectPos, phi, theta, r, viewerSize, frameRect }) {
-  const fallbackY = clamp(subjectPos.y - FACE_FALLBACK_OFFSET, -1, 1);
-  const fallback = {
-    x: ((subjectPos.x + 1) / 2) * 100,
-    y: ((fallbackY + 1) / 2) * 100,
-  };
-
-  const subjectWorld = {
-    x: subjectPos.x * SUBJECT_POSITION_SCALE,
-    y: -subjectPos.y * SUBJECT_POSITION_SCALE,
-    z: 0,
-  };
-  const faceWorld = {
-    x: subjectWorld.x + FACE_MODEL_ANCHOR.x,
-    y: subjectWorld.y + FACE_MODEL_ANCHOR.y,
-    z: subjectWorld.z + FACE_MODEL_ANCHOR.z,
-  };
-
-  return getProjectedFramePercent({
-    worldPoint: faceWorld,
-    phi,
-    theta,
-    r,
-    viewerSize,
-    frameRect,
-    fallback,
-  });
 }
 
 function getGazeKeyword(gazeVector, isKorean, theta = 0) {
@@ -302,8 +85,7 @@ function getGazeKeyword(gazeVector, isKorean, theta = 0) {
     return isKorean ? "카메라 정면 응시" : "looking directly at camera";
   }
 
-  // In back-facing poses, screen-left/right should stay intuitive to the user.
-  // Mirror horizontal gaze so dragged direction and prompt wording match frame perception.
+  // Keep on-screen drag direction consistent when subject is back-facing.
   const nx = (backFacing ? -x : x) / mag;
   const ny = y / mag;
   const h = nx > 0.45 ? "right" : nx < -0.45 ? "left" : "";
@@ -382,7 +164,7 @@ function getCompositionKeyword(position, isKorean) {
   return "subject at lower-right third intersection";
 }
 
-export default function InteractiveMode({ accessToken = "" }) {
+export default function InteractiveModeDesign({ accessToken = "" }) {
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1440,
   );
@@ -393,7 +175,7 @@ export default function InteractiveMode({ accessToken = "" }) {
   const [translating, setTranslating] = useState(false);
   const [translateError, setTranslateError] = useState("");
   const [isSubjectLocked, setIsSubjectLocked] = useState(false);
-  const [isSubjectToolbarOpen, setIsSubjectToolbarOpen] = useState(false);
+  const [isSubjectPanelOpen, setIsSubjectPanelOpen] = useState(false);
   const [lockedSubject, setLockedSubject] = useState({ kr: "", en: "" });
 
   const [promptLang, setPromptLang] = useState("en");
@@ -416,7 +198,6 @@ export default function InteractiveMode({ accessToken = "" }) {
   const [promptHistory, setPromptHistory] = useState([]);
   const [userPresets, setUserPresets] = useState([]);
   const [presetName, setPresetName] = useState("");
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isViewerActive, setIsViewerActive] = useState(
     typeof window === "undefined" ? true : window.innerWidth > 860,
   );
@@ -425,7 +206,6 @@ export default function InteractiveMode({ accessToken = "" }) {
   const mountRef = useRef(null);
   const frameRef = useRef(null);
   const libraryRef = useRef(null);
-  const subjectInputRef = useRef(null);
 
   const frameAnimRef = useRef(null);
   const isDraggingCamera = useRef(false);
@@ -534,7 +314,7 @@ export default function InteractiveMode({ accessToken = "" }) {
     const timeout = setTimeout(() => {
       trackEvent("camera_distance_changed", {
         distance: Number(r.toFixed(3)),
-        distancePercent: Math.round((1 - r) * 100),
+        distancePercent: Math.round(r * 100),
       });
     }, 280);
 
@@ -545,62 +325,35 @@ export default function InteractiveMode({ accessToken = "" }) {
   const selectedAspectRatio = parseRatio(selectedAr.value);
 
   const frameRect = useMemo(() => {
-    const safeTop = isMobile ? 26 : 34;
+    const safeTop = isMobile ? 76 : 92;
     const safeBottom = isMobile ? 82 : 98;
     const safeSide = isMobile ? 16 : 34;
 
     const availableWidth = Math.max(180, (viewerSize.width || 680) - safeSide * 2);
     const availableHeight = Math.max(180, (viewerSize.height || 420) - safeTop - safeBottom);
-    return getAspectFitRect(availableWidth, availableHeight, selectedAspectRatio);
-  }, [viewerSize, selectedAspectRatio, isMobile]);
 
-  const controlFrameRect = useMemo(
-    () => getAspectFitRect(viewerSize.width || 680, viewerSize.height || 420, selectedAspectRatio),
-    [viewerSize, selectedAspectRatio],
-  );
+    let width = availableWidth;
+    let height = width / selectedAspectRatio;
+
+    if (height > availableHeight) {
+      height = availableHeight;
+      width = height * selectedAspectRatio;
+    }
+
+    return {
+      width: Math.round(width),
+      height: Math.round(height),
+    };
+  }, [viewerSize, selectedAspectRatio, isMobile]);
 
   const resolved = useMemo(() => resolveKeywords(phi, theta, r, PERSON_SUBJECT), [phi, theta, r]);
   const isPromptKR = promptLang === "kr";
 
-  const subjectWorldPoint = useMemo(
-    () => ({
-      x: subjectPos.x * SUBJECT_POSITION_SCALE,
-      y: -subjectPos.y * SUBJECT_POSITION_SCALE,
-      z: 0,
-    }),
-    [subjectPos],
-  );
-
-  const subjectAnchorPercent = useMemo(
-    () =>
-      getProjectedFramePercent({
-        worldPoint: subjectWorldPoint,
-        phi,
-        theta,
-        r,
-        viewerSize,
-        frameRect: controlFrameRect,
-        fallback: {
-          x: ((subjectPos.x + 1) / 2) * 100,
-          y: ((subjectPos.y + 1) / 2) * 100,
-        },
-      }),
-    [subjectWorldPoint, phi, theta, r, viewerSize, controlFrameRect, subjectPos],
-  );
-
-  const compositionPosition = useMemo(
-    () => ({
-      x: clamp(subjectAnchorPercent.x / 50 - 1, -1, 1),
-      y: clamp(subjectAnchorPercent.y / 50 - 1, -1, 1),
-    }),
-    [subjectAnchorPercent],
-  );
-
   const gazeKr = useMemo(() => getGazeKeyword(gazeVector, true, theta), [gazeVector, theta]);
   const gazeEn = useMemo(() => getGazeKeyword(gazeVector, false, theta), [gazeVector, theta]);
 
-  const compositionKr = useMemo(() => getCompositionKeyword(compositionPosition, true), [compositionPosition]);
-  const compositionEn = useMemo(() => getCompositionKeyword(compositionPosition, false), [compositionPosition]);
+  const compositionKr = useMemo(() => getCompositionKeyword(subjectPos, true), [subjectPos]);
+  const compositionEn = useMemo(() => getCompositionKeyword(subjectPos, false), [subjectPos]);
 
   const activeSubjectKorean = isSubjectLocked ? lockedSubject.kr : subjectKorean || subjectText.trim();
   const activeSubjectEnglish = isSubjectLocked ? lockedSubject.en : subjectEnglish;
@@ -760,34 +513,17 @@ export default function InteractiveMode({ accessToken = "" }) {
     setUpgradeNotice("");
   }, [upgradeContextKey]);
 
-  useEffect(() => {
-    if (!isLibraryOpen) return;
-    libraryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [isLibraryOpen]);
-
   const updateSubjectPositionFromPointer = (clientX, clientY) => {
     if (!frameRef.current) return;
     const rect = frameRef.current.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
 
-    const percentX = ((clientX - rect.left) / rect.width) * 100;
-    const percentY = ((clientY - rect.top) / rect.height) * 100;
-
-    const worldPoint = getWorldPointOnSubjectPlane({
-      percentX,
-      percentY,
-      phi: phiRef.current,
-      theta: thetaRef.current,
-      r: rRef.current,
-      viewerSize,
-      frameRect: controlFrameRect,
-    });
-
-    if (!worldPoint) return;
+    const normalizedX = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const normalizedY = ((clientY - rect.top) / rect.height) * 2 - 1;
 
     setSubjectPos({
-      x: clamp(worldPoint.x / SUBJECT_POSITION_SCALE, SUBJECT_POS_MIN, SUBJECT_POS_MAX),
-      y: clamp(-worldPoint.y / SUBJECT_POSITION_SCALE, SUBJECT_POS_MIN, SUBJECT_POS_MAX),
+      x: clamp(normalizedX, -1, 1),
+      y: clamp(normalizedY, -1, 1),
     });
   };
 
@@ -796,16 +532,9 @@ export default function InteractiveMode({ accessToken = "" }) {
     const rect = frameRef.current.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
 
-    const faceAnchor = getFaceAnchorPercent({
-      subjectPos: subjectPosRef.current,
-      phi: phiRef.current,
-      theta: thetaRef.current,
-      r: rRef.current,
-      viewerSize,
-      frameRect: controlFrameRect,
-    });
-    const anchorX = rect.left + (faceAnchor.x / 100) * rect.width;
-    const anchorY = rect.top + (faceAnchor.y / 100) * rect.height;
+    const faceY = clamp(subjectPosRef.current.y - FACE_ANCHOR_OFFSET, -1, 1);
+    const anchorX = rect.left + ((subjectPosRef.current.x + 1) / 2) * rect.width;
+    const anchorY = rect.top + ((faceY + 1) / 2) * rect.height;
     const radius = getGazeRadius({ width: rect.width, height: rect.height });
 
     let dx = clientX - anchorX;
@@ -1045,11 +774,10 @@ export default function InteractiveMode({ accessToken = "" }) {
     setR(preset.r);
     setSubjectPos(preset.subjectPos || { x: 0, y: 0 });
     setGazeVector(preset.gazeVector || { x: 0, y: 0 });
-    const nextRatioId = AR_PRESETS.some((item) => item.id === preset.arPresetId) ? preset.arPresetId : "ar916";
-    setArPresetId(nextRatioId);
+    setArPresetId(preset.arPresetId || "ar916");
     trackEvent("preset_applied", {
       presetId: preset.id,
-      ratioId: nextRatioId,
+      ratioId: preset.arPresetId || "ar916",
     });
   };
 
@@ -1089,7 +817,9 @@ export default function InteractiveMode({ accessToken = "" }) {
       setTranslateError("저장 공간 제한으로 프리셋 초기화에 실패했습니다.");
       return;
     }
-    trackEvent("preset_reset_all", { count: next.length });
+    trackEvent("preset_reset_all", {
+      count: next.length,
+    });
   };
 
   const handleRemoveHistoryItem = (itemId) => {
@@ -1248,38 +978,6 @@ export default function InteractiveMode({ accessToken = "" }) {
     trackEvent("subject_lock_changed", { locked: false });
   };
 
-  const handleSubjectEdit = () => {
-    const wasLocked = isSubjectLocked;
-    setIsSubjectToolbarOpen(true);
-    if (wasLocked) {
-      setIsSubjectLocked(false);
-      setTranslateError("");
-    }
-    trackEvent("subject_edit_clicked", { wasLocked });
-    setTimeout(() => {
-      subjectInputRef.current?.focus();
-      subjectInputRef.current?.select();
-    }, 0);
-  };
-
-  const handleResetSubject = () => {
-    setIsSubjectToolbarOpen(true);
-    setSubjectText("");
-    setSubjectKorean("");
-    setSubjectEnglish("");
-    setLockedSubject({ kr: "", en: "" });
-    setIsSubjectLocked(false);
-    setTranslateError("");
-    setCustomPromptHint("");
-    setApiUpgradeResult(null);
-    setPromptVariant("base");
-    setUpgradeNotice(isPromptKR ? "주체/수정내용을 초기화했습니다." : "Subject/custom hints were reset.");
-    trackEvent("subject_reset_clicked", { resetCustomHint: true });
-    setTimeout(() => {
-      subjectInputRef.current?.focus();
-    }, 0);
-  };
-
   const handleToggleAngleInPrompt = () => {
     setIncludeAngleInPrompt((prev) => {
       const next = !prev;
@@ -1299,14 +997,6 @@ export default function InteractiveMode({ accessToken = "" }) {
     trackEvent("ratio_changed", {
       ratioId: nextPresetId,
       ratioValue: nextPreset?.value || "",
-    });
-  };
-
-  const handleToggleLibrary = () => {
-    setIsLibraryOpen((prev) => {
-      const next = !prev;
-      trackEvent("library_toggled", { open: next });
-      return next;
     });
   };
 
@@ -1343,7 +1033,7 @@ export default function InteractiveMode({ accessToken = "" }) {
       rim.position.set(-3, 2, -4);
       scene.add(rim);
 
-      const sphereGeo = new THREE.SphereGeometry(SPHERE_RADIUS, 24, 18);
+      const sphereGeo = new THREE.SphereGeometry(2.2, 24, 18);
       const sphereMat = new THREE.MeshBasicMaterial({
         color: toColorInt(SEGMENT_COLORS.shot, 0x1a3a6a),
         wireframe: true,
@@ -1358,14 +1048,14 @@ export default function InteractiveMode({ accessToken = "" }) {
         opacity: 0.15,
         side: 2,
       });
-      scene.add(new THREE.Mesh(new THREE.SphereGeometry(SPHERE_RADIUS, 24, 18), innerMat));
+      scene.add(new THREE.Mesh(new THREE.SphereGeometry(2.2, 24, 18), innerMat));
 
       const subjectObject = buildSubjectObject(THREE, PERSON_SUBJECT.object, scene);
 
       const updateCamera = () => {
         const pRad = (phiRef.current * Math.PI) / 180;
         const tRad = (thetaRef.current * Math.PI) / 180;
-        const viewR = getCameraDistance(rRef.current);
+        const viewR = 3 + (1 - rRef.current) * 7;
 
         const x = viewR * Math.sin(pRad) * Math.sin(tRad);
         const y = viewR * Math.cos(pRad);
@@ -1377,12 +1067,12 @@ export default function InteractiveMode({ accessToken = "" }) {
         } else {
           camera.up.set(0, 1, 0);
         }
-        camera.lookAt(0, getCameraLookAtY(rRef.current), 0);
+        camera.lookAt(0, 0, 0);
       };
 
       const updateSubjectOffset = () => {
-        subjectObject.position.x = subjectPosRef.current.x * SUBJECT_POSITION_SCALE;
-        subjectObject.position.y = -subjectPosRef.current.y * SUBJECT_POSITION_SCALE;
+        subjectObject.position.x = subjectPosRef.current.x * 1.1;
+        subjectObject.position.y = -subjectPosRef.current.y * 1.1;
       };
 
       const onResize = () => {
@@ -1492,30 +1182,15 @@ export default function InteractiveMode({ accessToken = "" }) {
   }, [isViewerActive]);
 
   const gazeRadius = useMemo(() => getGazeRadius(frameRect), [frameRect]);
-  const positionPercentX = subjectAnchorPercent.x;
-  const positionPercentY = subjectAnchorPercent.y;
-  const faceAnchorPercent = useMemo(
-    () =>
-      getFaceAnchorPercent({
-        subjectPos,
-        phi,
-        theta,
-        r,
-        viewerSize,
-        frameRect: controlFrameRect,
-      }),
-    [subjectPos, phi, theta, r, viewerSize, controlFrameRect],
-  );
-  const facePercentX = faceAnchorPercent.x;
-  const facePercentY = faceAnchorPercent.y;
+  const positionPercentX = ((subjectPos.x + 1) / 2) * 100;
+  const positionPercentY = ((subjectPos.y + 1) / 2) * 100;
+  const faceAnchorY = clamp(subjectPos.y - FACE_ANCHOR_OFFSET, -1, 1);
+  const facePercentX = positionPercentX;
+  const facePercentY = ((faceAnchorY + 1) / 2) * 100;
   const gazeDx = gazeVector.x * gazeRadius;
   const gazeDy = gazeVector.y * gazeRadius;
   const gazeLength = Math.hypot(gazeDx, gazeDy);
   const gazeAngle = (Math.atan2(gazeDy, gazeDx) * 180) / Math.PI;
-  const gazeHandleAngle = gazeLength > 2 ? gazeAngle : 0;
-  const angleAxisColor = includeAngleInPrompt ? HEIGHT_ACCENT : "#6f7787";
-  const directionAxisColor = includeAngleInPrompt ? DIRECTION_ACCENT : "#6f7787";
-  const shotDistancePercent = Math.round((1 - r) * 100);
   const subjectSummaryText = String(subjectText || subjectKorean || subjectEnglish || "").trim();
 
   return (
@@ -1525,7 +1200,7 @@ export default function InteractiveMode({ accessToken = "" }) {
         flexDirection: "column",
         height: isMobile ? "auto" : "calc(100dvh - 130px)",
         minHeight: isMobile ? 0 : 580,
-        background: "#1a1a1a",
+        background: UI.neutral.bg,
         overflowY: "auto",
       }}
     >
@@ -1536,235 +1211,190 @@ export default function InteractiveMode({ accessToken = "" }) {
           margin: "0 auto",
           display: "flex",
           flexDirection: "column",
-          padding: isMobile ? "0 0 10px" : "0 14px 14px",
-          gap: 0,
+          padding: isMobile ? "10px 10px 12px" : "16px 20px 24px",
+          gap: UI.spacing.section,
         }}
       >
 
       <div
         style={{
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
-          flexWrap: isMobile ? "wrap" : "nowrap",
-          padding: "12px 16px",
-          background: "#1a1a1a",
-          borderBottom: "1px solid #1a2a4a",
+          gap: UI.spacing.control,
+          padding: "16px 18px",
+          background: UI.neutral.panel,
+          border: `1px solid ${UI.neutral.borderSoft}`,
+          borderRadius: 14,
         }}
       >
-        <button
-          type="button"
-          onClick={() => setIsSubjectToolbarOpen((prev) => !prev)}
-          aria-expanded={isSubjectToolbarOpen}
-          style={{
-            background: "transparent",
-            border: "1px solid #2a3a6a",
-            borderRadius: 10,
-            color: isSubjectToolbarOpen ? "#b8c2d3" : "#9aa0ac",
-            fontSize: 12,
-            padding: "10px 12px",
-            cursor: "pointer",
-            fontFamily: "sans-serif",
-            whiteSpace: "nowrap",
-            fontWeight: 800,
-          }}
-        >
-          {isSubjectToolbarOpen ? "주체 접기" : "주체 펼치기"}
-        </button>
-
-        {isSubjectToolbarOpen ? (
-          <>
-            <input
-              ref={subjectInputRef}
-              type="text"
-              value={subjectText}
-              onChange={(event) => {
-                if (isSubjectLocked) return;
-                const value = event.target.value;
-                setSubjectText(value);
-                setSubjectKorean(value.trim());
-                setSubjectEnglish("");
-                setTranslateError("");
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") translateSubject();
-              }}
-              readOnly={isSubjectLocked}
-              placeholder={DEFAULT_SUBJECT_PROMPTS.person}
-              style={{
-                flex: isMobile ? "1 1 100%" : "0 0 470px",
-                width: isMobile ? "100%" : 470,
-                maxWidth: "100%",
-                background: isSubjectLocked ? "#1f2530" : "#252525",
-                border: "1px solid #2a3a6a",
-                borderRadius: 10,
-                padding: "10px 14px",
-                color: isSubjectLocked ? "#9fb6d6" : "#e0ddd4",
-                fontSize: 13,
-                fontFamily: "sans-serif",
-                outline: "none",
-              }}
-            />
-
-            <button
-              onClick={translateSubject}
-              disabled={translating || isSubjectLocked}
-              style={{
-                background: translating || isSubjectLocked ? "#252525" : "#f19eb8",
-                border: "none",
-                borderRadius: 10,
-                color: translating || isSubjectLocked ? "#777" : "#1a1a1a",
-                fontSize: 12,
-                fontWeight: 800,
-                padding: "10px 14px",
-                cursor: translating || isSubjectLocked ? "default" : "pointer",
-                fontFamily: "sans-serif",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {translating ? "번역중..." : "번역"}
-            </button>
-
-            <button
-              onClick={handleToggleSubjectLock}
-              style={{
-                background: isSubjectLocked ? withAlpha(SEGMENT_COLORS.subject, 0.25) : "#252525",
-                border: `1px solid ${isSubjectLocked ? SEGMENT_COLORS.subject : "#2a3a6a"}`,
-                borderRadius: 10,
-                color: isSubjectLocked ? SEGMENT_COLORS.subject : "#9aa0ac",
-                fontSize: 12,
-                padding: "10px 14px",
-                cursor: "pointer",
-                fontFamily: "sans-serif",
-                whiteSpace: "nowrap",
-                fontWeight: 700,
-              }}
-            >
-              {isSubjectLocked ? "주체 고정 ON" : "주체 고정 OFF"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSubjectEdit}
-              style={{
-                background: "transparent",
-                border: "1px solid #2a3a6a",
-                borderRadius: 10,
-                color: "#9aa0ac",
-                fontSize: 12,
-                padding: "10px 12px",
-                cursor: "pointer",
-                fontFamily: "sans-serif",
-                whiteSpace: "nowrap",
-                fontWeight: 700,
-              }}
-            >
-              주체 수정
-            </button>
-
-            <button
-              type="button"
-              onClick={handleResetSubject}
-              style={{
-                background: "transparent",
-                border: "1px solid #5f2f42",
-                borderRadius: 10,
-                color: "#ff9ab6",
-                fontSize: 12,
-                padding: "10px 12px",
-                cursor: "pointer",
-                fontFamily: "sans-serif",
-                whiteSpace: "nowrap",
-                fontWeight: 700,
-              }}
-            >
-              주체 초기화
-            </button>
-          </>
-        ) : (
-          <div
-            style={{
-              flex: isMobile ? "1 1 100%" : "0 0 470px",
-              maxWidth: "100%",
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid #2a3a6a",
-              background: "#1f2530",
-              color: "#9fb6d6",
-              fontSize: 12,
-              fontFamily: "sans-serif",
-              lineHeight: 1.3,
-            }}
-          >
-            {subjectSummaryText
-              ? subjectSummaryText.length > 40
-                ? `${subjectSummaryText.slice(0, 40)}...`
-                : subjectSummaryText
-              : "주체 입력 영역이 접혀 있습니다."}
-          </div>
-        )}
-
-        <div style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <div
-            title={isPromptKR ? "비율 선택" : "Aspect ratio"}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              padding: 4,
-              borderRadius: 10,
-              border: `1px solid ${withAlpha(RATIO_ACCENT, 0.34)}`,
-              background: "rgba(11,15,23,0.78)",
-            }}
-          >
+        <div style={{ width: "100%", maxWidth: isMobile ? "100%" : 760, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
             <span
               style={{
-                color: withAlpha(RATIO_ACCENT, 0.88),
-                fontSize: 10,
-                fontFamily: "'Arial Black',sans-serif",
-                fontWeight: 900,
+                fontSize: 12,
+                color: UI.text.muted,
+                fontFamily: "sans-serif",
                 letterSpacing: "0.12em",
-                padding: "0 6px",
                 whiteSpace: "nowrap",
+                fontWeight: 700,
               }}
             >
-              AR
+              SUBJECT
             </span>
-            {AR_PRESETS.map((preset) => {
-              const isOn = arPresetId === preset.id;
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => handleAspectRatioChange(preset.id)}
+            <button
+              type="button"
+              onClick={() => setIsSubjectPanelOpen((prev) => !prev)}
+              aria-expanded={isSubjectPanelOpen}
+              style={{
+                background: "transparent",
+                border: `1px solid ${UI.neutral.borderStrong}`,
+                borderRadius: 10,
+                color: isSubjectPanelOpen ? UI.text.strong : UI.text.main,
+                fontSize: 12,
+                fontWeight: 800,
+                fontFamily: "sans-serif",
+                padding: "7px 10px",
+                cursor: "pointer",
+              }}
+            >
+              {isSubjectPanelOpen ? "주체 접기" : "주체 펼치기"}
+            </button>
+          </div>
+
+          {isSubjectPanelOpen ? (
+            <>
+              <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: isMobile ? "wrap" : "nowrap" }}>
+                <input
+                  type="text"
+                  value={subjectText}
+                  onChange={(event) => {
+                    if (isSubjectLocked) return;
+                    const value = event.target.value;
+                    setSubjectText(value);
+                    setSubjectKorean(value.trim());
+                    setSubjectEnglish("");
+                    setTranslateError("");
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") translateSubject();
+                  }}
+                  readOnly={isSubjectLocked}
+                  placeholder={DEFAULT_SUBJECT_PROMPTS.person}
                   style={{
-                    background: isOn ? RATIO_ACCENT : "transparent",
-                    color: isOn ? "#111" : "#9aa0ac",
-                    border: `1px solid ${isOn ? RATIO_ACCENT : "rgba(255,255,255,0.2)"}`,
-                    borderRadius: 6,
-                    padding: "6px 8px",
-                    minWidth: 44,
-                    cursor: "pointer",
-                    fontFamily: "'Arial Black',sans-serif",
-                    fontSize: 11,
-                    fontWeight: 900,
-                    lineHeight: 1,
+                    flex: isMobile ? "1 1 100%" : "0 0 440px",
+                    width: isMobile ? "100%" : 440,
+                    maxWidth: "100%",
+                    background: isSubjectLocked ? UI.neutral.panelSoft : UI.neutral.panelRaised,
+                    border: `1px solid ${UI.neutral.borderStrong}`,
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                    color: isSubjectLocked ? UI.text.main : UI.text.strong,
+                    fontSize: 13,
+                    fontFamily: "sans-serif",
+                    outline: "none",
+                  }}
+                />
+
+                <button
+                  onClick={translateSubject}
+                  disabled={translating || isSubjectLocked}
+                  style={{
+                    background: translating || isSubjectLocked
+                      ? UI.neutral.panelSoft
+                      : withAlpha(UI.accents.subject, UI.alpha.hover),
+                    border: `1px solid ${translating || isSubjectLocked ? UI.neutral.borderSoft : UI.accents.subject}`,
+                    borderRadius: 10,
+                    color: translating || isSubjectLocked ? UI.text.dim : "#111",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    padding: "9px 12px",
+                    cursor: translating || isSubjectLocked ? "default" : "pointer",
+                    fontFamily: "sans-serif",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  {preset.label}
+                  {translating ? "번역중..." : "번역"}
                 </button>
-              );
-            })}
-          </div>
+
+                <button
+                  onClick={handleToggleSubjectLock}
+                  style={{
+                    background: isSubjectLocked ? withAlpha(SEGMENT_COLORS.subject, 0.22) : UI.neutral.panelSoft,
+                    border: `1px solid ${isSubjectLocked ? SEGMENT_COLORS.subject : UI.neutral.borderStrong}`,
+                    borderRadius: 10,
+                    color: isSubjectLocked ? SEGMENT_COLORS.subject : UI.text.main,
+                    fontSize: 12,
+                    padding: "9px 10px",
+                    cursor: "pointer",
+                    fontFamily: "sans-serif",
+                    whiteSpace: "nowrap",
+                    fontWeight: 700,
+                  }}
+                >
+                  {isSubjectLocked ? "주체 고정 ON" : "주체 고정 OFF"}
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (isSubjectLocked) return;
+                    setSubjectText("");
+                    setSubjectKorean("");
+                    setSubjectEnglish("");
+                    setTranslateError("");
+                  }}
+                  disabled={isSubjectLocked}
+                  style={{
+                    background: UI.neutral.panelSoft,
+                    border: `1px solid ${UI.neutral.borderStrong}`,
+                    borderRadius: 10,
+                    color: isSubjectLocked ? UI.text.dim : UI.text.main,
+                    fontSize: 12,
+                    padding: "9px 10px",
+                    cursor: isSubjectLocked ? "default" : "pointer",
+                    fontFamily: "sans-serif",
+                    whiteSpace: "nowrap",
+                    opacity: isSubjectLocked ? 0.55 : 1,
+                  }}
+                >
+                  초기화
+                </button>
+              </div>
+
+              <div style={{ textAlign: "center", fontSize: 11, color: UI.text.muted, fontFamily: "sans-serif" }}>
+                {isSubjectLocked
+                  ? "주체 고정 상태에서는 카메라/구도만 바꿔 프롬프트를 조정할 수 있습니다."
+                  : isPromptKR
+                    ? "한글 주체를 입력한 뒤 번역하면 EN 프롬프트가 자동 정리됩니다."
+                    : "Enter subject, then translate Korean text to keep EN prompt clean."}
+              </div>
+
+              {translateError ? (
+                <div style={{ textAlign: "center", fontSize: 12, color: UI.accents.error, fontFamily: "sans-serif" }}>{translateError}</div>
+              ) : null}
+            </>
+          ) : (
+            <div
+              style={{
+                border: `1px solid ${UI.neutral.borderStrong}`,
+                borderRadius: 10,
+                background: UI.neutral.panelSoft,
+                padding: "9px 10px",
+                color: UI.text.main,
+                fontSize: 12,
+                fontFamily: "sans-serif",
+                lineHeight: 1.3,
+              }}
+            >
+              {subjectSummaryText
+                ? subjectSummaryText.length > 40
+                  ? `${subjectSummaryText.slice(0, 40)}...`
+                  : subjectSummaryText
+                : "주체 입력 영역이 접혀 있습니다."}
+            </div>
+          )}
         </div>
       </div>
-
-      {translateError ? (
-        <div style={{ textAlign: "center", fontSize: 12, color: "#ff9ab6", fontFamily: "sans-serif", padding: "6px 12px" }}>
-          {translateError}
-        </div>
-      ) : null}
 
       <div
         ref={viewerRef}
@@ -1773,6 +1403,9 @@ export default function InteractiveMode({ accessToken = "" }) {
           minHeight: isMobile ? 300 : 360,
           position: "relative",
           overflow: "hidden",
+          background: UI.neutral.panel,
+          border: `1px solid ${UI.neutral.borderSoft}`,
+          borderRadius: 14,
         }}
       >
         <div ref={mountRef} style={{ width: "100%", height: "100%", cursor: isViewerActive ? "grab" : "default" }} />
@@ -1812,6 +1445,83 @@ export default function InteractiveMode({ accessToken = "" }) {
             </button>
           </div>
         ) : null}
+
+        <div
+          style={{
+            position: "absolute",
+            top: 10,
+            left: "50%",
+            transform: "translateX(-50%)",
+            color: UI.text.muted,
+            fontSize: 12,
+            fontFamily: "sans-serif",
+            letterSpacing: "0.08em",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+          }}
+        >
+          드래그로 카메라 조정 · 휠로 거리 조정
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            top: 36,
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            flexWrap: "wrap",
+            justifyContent: "center",
+            padding: "6px 10px",
+            borderRadius: 12,
+            border: `1px solid ${withAlpha(RATIO_ACCENT, 0.34)}`,
+            background: "rgba(12,14,22,0.72)",
+            backdropFilter: "blur(2px)",
+            zIndex: 12,
+            maxWidth: "94%",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 10,
+              color: RATIO_ACCENT,
+              fontFamily: "'Arial Black',sans-serif",
+              fontWeight: 900,
+              letterSpacing: "0.18em",
+              marginRight: 4,
+            }}
+          >
+            ✦ RATIO
+          </span>
+          <span style={{ fontSize: 11, color: UI.text.muted, fontFamily: "sans-serif", marginRight: 4 }}>
+            {isPromptKR ? "비율 프레임 + 피사체 위치 드래그" : "ratio frame + subject drag"}
+          </span>
+
+          {AR_PRESETS.map((preset) => {
+            const isOn = arPresetId === preset.id;
+            return (
+              <button
+                key={preset.id}
+                onClick={() => handleAspectRatioChange(preset.id)}
+                style={{
+                  background: isOn ? RATIO_ACCENT : "transparent",
+                  color: isOn ? UI.neutral.bg : UI.text.muted,
+                  border: `1px solid ${isOn ? RATIO_ACCENT : "rgba(255,255,255,0.20)"}`,
+                  borderRadius: 3,
+                  padding: "2px 7px",
+                  cursor: "pointer",
+                  fontFamily: "'Arial Black',sans-serif",
+                  fontSize: 10,
+                  fontWeight: 900,
+                }}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
 
         <div
           style={{
@@ -1884,15 +1594,15 @@ export default function InteractiveMode({ accessToken = "" }) {
                 left: `${facePercentX}%`,
                 top: `${facePercentY}%`,
                 transform: "translate(-50%, -50%)",
-                width: 10,
-                height: 10,
+                width: 12,
+                height: 12,
                 borderRadius: "50%",
                 border: `2px solid ${GAZE_ACCENT}`,
                 background: withAlpha(GAZE_ACCENT, 0.22),
                 boxShadow: `0 0 12px ${withAlpha(GAZE_ACCENT, 0.85)}`,
               }}
             />
-            {gazeLength > 1 ? (
+            {gazeLength > 2 ? (
               <div
                 style={{
                   position: "absolute",
@@ -1908,42 +1618,45 @@ export default function InteractiveMode({ accessToken = "" }) {
                 }}
               />
             ) : null}
+            {gazeLength > 2 ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: `calc(${facePercentX}% + ${gazeDx}px)`,
+                  top: `calc(${facePercentY}% + ${gazeDy}px)`,
+                  width: 0,
+                  height: 0,
+                  borderTop: "6px solid transparent",
+                  borderBottom: "6px solid transparent",
+                  borderLeft: `10px solid ${GAZE_ACCENT}`,
+                  transform: `translate(-50%, -50%) rotate(${gazeAngle}deg)`,
+                  filter: `drop-shadow(0 0 6px ${withAlpha(GAZE_ACCENT, 0.86)})`,
+                  pointerEvents: "none",
+                }}
+              />
+            ) : null}
             <button
               type="button"
               onPointerDown={onGazePointerDown}
               onDoubleClick={() => setGazeVector({ x: 0, y: 0 })}
               title={isPromptKR ? "시선 화살표 드래그" : "Drag gaze arrow"}
-              aria-label={isPromptKR ? "시선 조절" : "Adjust gaze"}
               style={{
                 position: "absolute",
                 left: `calc(${facePercentX}% + ${gazeDx}px)`,
                 top: `calc(${facePercentY}% + ${gazeDy}px)`,
-                transform: `translate(-50%, -50%) rotate(${gazeHandleAngle}deg)`,
-                width: 24,
-                height: 24,
-                border: "none",
-                background: "transparent",
-                boxShadow: "none",
+                transform: "translate(-50%, -50%)",
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+                border: `2px solid ${GAZE_ACCENT}`,
+                background: "rgba(7,20,28,0.95)",
+                boxShadow: `0 0 10px ${withAlpha(GAZE_ACCENT, 0.9)}`,
                 cursor: "grab",
                 pointerEvents: "auto",
                 zIndex: 3,
                 padding: 0,
-                display: "grid",
-                placeItems: "center",
               }}
-            >
-              <span
-                aria-hidden="true"
-                style={{
-                  width: 0,
-                  height: 0,
-                  borderTop: "6px solid transparent",
-                  borderBottom: "6px solid transparent",
-                  borderLeft: `12px solid ${GAZE_ACCENT}`,
-                  filter: `drop-shadow(0 0 6px ${withAlpha(GAZE_ACCENT, 0.88)})`,
-                }}
-              />
-            </button>
+            />
             <div
               style={{
                 position: "absolute",
@@ -1975,104 +1688,32 @@ export default function InteractiveMode({ accessToken = "" }) {
             right: isMobile ? 8 : 12,
             top: "50%",
             transform: "translateY(-50%)",
-            width: isMobile ? 188 : 216,
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
           }}
         >
-          <div
-            style={{
-              display: "grid",
-              gap: 10,
-              padding: "10px 10px 12px",
-              borderRadius: 12,
-              border: `1px solid ${withAlpha(directionAxisColor, 0.34)}`,
-              background: "rgba(9,13,20,0.72)",
-              boxShadow: `inset 0 0 0 1px ${withAlpha(angleAxisColor, 0.24)}`,
-            }}
-          >
-            <span style={{ fontSize: 10, color: "#95a1b5", fontFamily: "sans-serif", fontWeight: 700, letterSpacing: "0.06em" }}>
-              {isPromptKR ? "카메라 컨트롤" : "camera controls"}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 9, color: SHOT_ACCENT, fontFamily: "sans-serif", fontWeight: 700 }}>멀리</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={Math.round((1 - r) * 100)}
+              onChange={(event) => setR(1 - event.target.value / 100)}
+              style={{
+                writingMode: "vertical-lr",
+                direction: "rtl",
+                width: 20,
+                height: 140,
+                cursor: "pointer",
+                accentColor: SHOT_ACCENT,
+              }}
+            />
+            <span style={{ fontSize: 9, color: SHOT_ACCENT, fontFamily: "sans-serif", fontWeight: 700 }}>
+              {Math.round(r * 100)}%
             </span>
-
-            <div style={{ display: "grid", gap: 4 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 10, color: angleAxisColor, fontFamily: "sans-serif", fontWeight: 800 }}>
-                  {isPromptKR ? "앵글" : "ANGLE"}
-                </span>
-                <span style={{ fontSize: 10, color: angleAxisColor, fontFamily: "monospace", fontWeight: 700 }}>
-                  {Math.round(phi)}°
-                </span>
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="179"
-                value={Math.round(phi)}
-                onChange={(event) => {
-                  const nextPhi = clamp(Number(event.target.value), 1, 179);
-                  phiRef.current = nextPhi;
-                  setPhi(nextPhi);
-                }}
-                style={{
-                  width: "100%",
-                  cursor: "pointer",
-                  accentColor: angleAxisColor,
-                }}
-              />
-            </div>
-
-            <div style={{ display: "grid", gap: 4 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 10, color: directionAxisColor, fontFamily: "sans-serif", fontWeight: 800 }}>
-                  {isPromptKR ? "방향" : "DIRECTION"}
-                </span>
-                <span style={{ fontSize: 10, color: directionAxisColor, fontFamily: "monospace", fontWeight: 700 }}>
-                  {Math.round(theta)}°
-                </span>
-              </div>
-              <input
-                type="range"
-                min="-180"
-                max="180"
-                value={Math.round(theta)}
-                onChange={(event) => {
-                  const nextTheta = clamp(Number(event.target.value), -180, 180);
-                  thetaRef.current = nextTheta;
-                  setTheta(nextTheta);
-                }}
-                style={{
-                  width: "100%",
-                  cursor: "pointer",
-                  accentColor: directionAxisColor,
-                }}
-              />
-            </div>
-
-            <div style={{ display: "grid", gap: 4 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 10, color: SHOT_ACCENT, fontFamily: "sans-serif", fontWeight: 800 }}>
-                  {isPromptKR ? "거리" : "DISTANCE"}
-                </span>
-                <span style={{ fontSize: 10, color: SHOT_ACCENT, fontFamily: "monospace", fontWeight: 700 }}>
-                  {shotDistancePercent}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={shotDistancePercent}
-                onChange={(event) => setR(1 - event.target.value / 100)}
-                style={{
-                  width: "100%",
-                  cursor: "pointer",
-                  accentColor: SHOT_ACCENT,
-                }}
-              />
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#7f90ab", fontFamily: "sans-serif" }}>
-                <span>{isPromptKR ? "가까움" : "near"}</span>
-                <span>{isPromptKR ? "멀리" : "far"}</span>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -2103,14 +1744,14 @@ export default function InteractiveMode({ accessToken = "" }) {
             },
             { label: "포지션", type: "composition", value: isPromptKR ? compositionKr : compositionEn },
           ].map((item) => {
-            const color = item.disabled ? "#6f7787" : SEGMENT_COLORS[item.type] || "#5ce8ff";
+            const color = item.disabled ? UI.text.dim : SEGMENT_COLORS[item.type] || UI.text.main;
             return (
             <div
               key={item.label}
               style={{
-                background: withAlpha(color, item.disabled ? 0.05 : 0.08),
-                border: `1px solid ${withAlpha(color, item.disabled ? 0.36 : 0.5)}`,
-                borderRadius: 8,
+                background: withAlpha(color, item.disabled ? 0.05 : 0.1),
+                border: `1px solid ${withAlpha(color, item.disabled ? 0.3 : 0.6)}`,
+                borderRadius: 10,
                 padding: "6px 8px",
               }}
             >
@@ -2121,7 +1762,7 @@ export default function InteractiveMode({ accessToken = "" }) {
                 {item.value}
               </div>
               {item.disabled ? (
-                <div style={{ fontSize: 9, color: "#8a94a7", fontFamily: "sans-serif", marginTop: 2 }}>
+                <div style={{ fontSize: 9, color: UI.text.dim, fontFamily: "sans-serif", marginTop: 2 }}>
                   {isPromptKR ? "프롬프트 제외" : "excluded"}
                 </div>
               ) : null}
@@ -2131,21 +1772,21 @@ export default function InteractiveMode({ accessToken = "" }) {
           <div
             style={{
               background: withAlpha(
-                includeAngleInPrompt ? SEGMENT_COLORS.gaze : "#6f7787",
-                includeAngleInPrompt ? 0.08 : 0.05,
+                includeAngleInPrompt ? SEGMENT_COLORS.gaze : UI.text.dim,
+                includeAngleInPrompt ? 0.1 : 0.05,
               ),
               border: `1px solid ${withAlpha(
-                includeAngleInPrompt ? SEGMENT_COLORS.gaze : "#6f7787",
-                includeAngleInPrompt ? 0.5 : 0.36,
+                includeAngleInPrompt ? SEGMENT_COLORS.gaze : UI.text.dim,
+                includeAngleInPrompt ? 0.6 : 0.3,
               )}`,
-              borderRadius: 8,
+              borderRadius: 10,
               padding: "6px 8px",
             }}
           >
             <div
               style={{
                 fontSize: 9,
-                color: includeAngleInPrompt ? SEGMENT_COLORS.gaze : "#6f7787",
+                color: includeAngleInPrompt ? SEGMENT_COLORS.gaze : UI.text.dim,
                 fontFamily: "sans-serif",
                 letterSpacing: "0.08em",
               }}
@@ -2155,7 +1796,7 @@ export default function InteractiveMode({ accessToken = "" }) {
             <div
               style={{
                 fontSize: 12,
-                color: includeAngleInPrompt ? SEGMENT_COLORS.gaze : "#6f7787",
+                color: includeAngleInPrompt ? SEGMENT_COLORS.gaze : UI.text.dim,
                 fontFamily: "sans-serif",
                 fontWeight: 700,
               }}
@@ -2163,7 +1804,7 @@ export default function InteractiveMode({ accessToken = "" }) {
               {isPromptKR ? gazeKr : gazeEn}
             </div>
             {!includeAngleInPrompt ? (
-              <div style={{ fontSize: 9, color: "#8a94a7", fontFamily: "sans-serif", marginTop: 2 }}>
+              <div style={{ fontSize: 9, color: UI.text.dim, fontFamily: "sans-serif", marginTop: 2 }}>
                 {isPromptKR ? "프롬프트 제외" : "excluded"}
               </div>
             ) : null}
@@ -2173,14 +1814,13 @@ export default function InteractiveMode({ accessToken = "" }) {
 
       <div
         style={{
-          background: "#111",
-          marginTop: isMobile ? 12 : 20,
-          padding: "10px 16px",
-          borderTop: "2px solid #f19eb8",
-          borderRadius: 10,
+          background: UI.neutral.panel,
+          padding: "14px 16px",
+          border: `1px solid ${UI.neutral.borderSoft}`,
+          borderRadius: 14,
           display: "flex",
           flexWrap: "wrap",
-          gap: 10,
+          gap: 12,
           alignItems: "flex-start",
         }}
       >
@@ -2188,7 +1828,7 @@ export default function InteractiveMode({ accessToken = "" }) {
           <span
             style={{
               fontSize: 10,
-              color: "#f19eb8",
+              color: UI.text.main,
               fontFamily: "'Arial Black',sans-serif",
               letterSpacing: "0.2em",
               fontWeight: 900,
@@ -2197,15 +1837,15 @@ export default function InteractiveMode({ accessToken = "" }) {
             PROMPT
           </span>
 
-          <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             <button
               onClick={() => handlePromptLangChange("kr")}
               style={{
-                background: isPromptKR ? "#f19eb8" : "transparent",
-                color: isPromptKR ? "#111" : "#777",
-                border: `1px solid ${isPromptKR ? "#f19eb8" : "#333"}`,
-                borderRadius: 4,
-                padding: "2px 6px",
+                background: isPromptKR ? UI.neutral.panelRaised : "transparent",
+                color: isPromptKR ? UI.text.strong : UI.text.dim,
+                border: `1px solid ${isPromptKR ? UI.neutral.borderStrong : UI.neutral.borderSoft}`,
+                borderRadius: 8,
+                padding: "4px 8px",
                 cursor: "pointer",
                 fontSize: 11,
                 fontFamily: "sans-serif",
@@ -2217,11 +1857,11 @@ export default function InteractiveMode({ accessToken = "" }) {
             <button
               onClick={() => handlePromptLangChange("en")}
               style={{
-                background: !isPromptKR ? "#f19eb8" : "transparent",
-                color: !isPromptKR ? "#111" : "#777",
-                border: `1px solid ${!isPromptKR ? "#f19eb8" : "#333"}`,
-                borderRadius: 4,
-                padding: "2px 6px",
+                background: !isPromptKR ? UI.neutral.panelRaised : "transparent",
+                color: !isPromptKR ? UI.text.strong : UI.text.dim,
+                border: `1px solid ${!isPromptKR ? UI.neutral.borderStrong : UI.neutral.borderSoft}`,
+                borderRadius: 8,
+                padding: "4px 8px",
                 cursor: "pointer",
                 fontSize: 11,
                 fontFamily: "sans-serif",
@@ -2233,31 +1873,31 @@ export default function InteractiveMode({ accessToken = "" }) {
             <button
               type="button"
               onClick={handleToggleAngleInPrompt}
-              aria-pressed={includeAngleInPrompt}
               style={{
+                background: "transparent",
+                color: includeAngleInPrompt ? SEGMENT_COLORS.height : UI.text.dim,
+                border: `1px solid ${includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.height, 0.9) : UI.neutral.borderSoft}`,
+                borderRadius: 999,
+                padding: "4px 8px",
+                cursor: "pointer",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                background: includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.height, 0.22) : "transparent",
-                color: includeAngleInPrompt ? SEGMENT_COLORS.height : "#7a8394",
-                border: `1px solid ${includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.height, 0.88) : "#364054"}`,
-                borderRadius: 999,
-                padding: "2px 8px 2px 6px",
-                cursor: "pointer",
                 fontSize: 10,
                 fontFamily: "sans-serif",
-                fontWeight: 700,
+                fontWeight: 800,
               }}
             >
-              <span style={{ fontSize: 10, fontWeight: 800 }}>앵글</span>
+              <span>앵글</span>
               <span
                 style={{
                   position: "relative",
-                  width: 30,
-                  height: 16,
+                  display: "inline-block",
+                  width: 28,
+                  height: 14,
                   borderRadius: 999,
-                  border: `1px solid ${includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.height, 0.9) : "#364054"}`,
-                  background: includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.height, 0.2) : "#1b2333",
+                  border: `1px solid ${includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.height, 0.9) : UI.neutral.borderSoft}`,
+                  background: includeAngleInPrompt ? withAlpha(SEGMENT_COLORS.height, 0.2) : UI.neutral.panelRaised,
                 }}
               >
                 <span
@@ -2268,14 +1908,12 @@ export default function InteractiveMode({ accessToken = "" }) {
                     width: 12,
                     height: 12,
                     borderRadius: "50%",
-                    background: includeAngleInPrompt ? SEGMENT_COLORS.height : "#7a8394",
+                    background: includeAngleInPrompt ? SEGMENT_COLORS.height : UI.text.muted,
                     transition: "left 160ms ease, background 160ms ease",
                   }}
                 />
               </span>
-              <span style={{ minWidth: 22, textAlign: "left", fontSize: 10, fontWeight: 800 }}>
-                {includeAngleInPrompt ? "ON" : "OFF"}
-              </span>
+              <span style={{ minWidth: 22, textAlign: "left" }}>{includeAngleInPrompt ? "ON" : "OFF"}</span>
             </button>
           </div>
 
@@ -2292,9 +1930,9 @@ export default function InteractiveMode({ accessToken = "" }) {
             style={{
               width: isMobile ? "100%" : 250,
               maxWidth: "100%",
-              background: "#161a22",
-              border: "1px solid #2c3444",
-              borderRadius: 6,
+              background: UI.neutral.panelRaised,
+              border: `1px solid ${UI.neutral.borderStrong}`,
+              borderRadius: 10,
               padding: "6px 8px",
               color: SEGMENT_COLORS.custom,
               fontSize: 11,
@@ -2305,7 +1943,7 @@ export default function InteractiveMode({ accessToken = "" }) {
             }}
           />
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
             <button
               type="button"
               onClick={handleUpgradePrompt}
@@ -2316,29 +1954,27 @@ export default function InteractiveMode({ accessToken = "" }) {
                   : canUpgradePrompt
                   ? withAlpha(SEGMENT_COLORS.custom, 0.2)
                   : "transparent",
-                color: canUpgradePrompt ? SEGMENT_COLORS.custom : "#8b96a8",
-                border: `1px solid ${canUpgradePrompt ? withAlpha(SEGMENT_COLORS.custom, 0.88) : "#364054"}`,
+                color: canUpgradePrompt ? SEGMENT_COLORS.custom : UI.text.dim,
+                border: `1px solid ${canUpgradePrompt ? withAlpha(SEGMENT_COLORS.custom, 0.9) : UI.neutral.borderSoft}`,
                 borderRadius: 8,
                 padding: "6px 10px",
                 cursor: !displayPrompt || promptValidationError || upgradeLoading ? "default" : "pointer",
-                fontFamily: "sans-serif",
                 fontSize: 11,
+                fontFamily: "sans-serif",
                 fontWeight: 800,
-                whiteSpace: "nowrap",
-                opacity: !displayPrompt || promptValidationError || upgradeLoading ? 0.45 : 1,
+                opacity: !displayPrompt || promptValidationError || upgradeLoading ? 0.55 : 1,
               }}
             >
               {upgradeLoading ? "다듬기 중..." : isUpgradedPromptSelected ? "다듬기 적용됨" : "다듬기 업그레이드"}
             </button>
-
             {isUpgradedPromptSelected ? (
               <button
                 type="button"
                 onClick={handleRevertPromptUpgrade}
                 style={{
                   background: "transparent",
-                  color: "#9aa0ac",
-                  border: "1px solid #364054",
+                  color: UI.text.main,
+                  border: `1px solid ${UI.neutral.borderSoft}`,
                   borderRadius: 8,
                   padding: "6px 10px",
                   cursor: "pointer",
@@ -2351,12 +1987,6 @@ export default function InteractiveMode({ accessToken = "" }) {
               </button>
             ) : null}
           </div>
-
-          {upgradeNotice ? (
-            <div style={{ color: "#9ec5ff", fontSize: 11, fontFamily: "sans-serif", marginTop: 2 }}>
-              {upgradeNotice}
-            </div>
-          ) : null}
         </div>
 
         <div style={{ flex: 1, minWidth: 220, fontFamily: "monospace", lineHeight: 1.7 }}>
@@ -2385,53 +2015,84 @@ export default function InteractiveMode({ accessToken = "" }) {
               ) : null}
             </>
           ) : (
-            <span style={{ color: "#666", fontSize: 13, fontFamily: "sans-serif" }}>
+            <span style={{ color: UI.text.dim, fontSize: 13, fontFamily: "sans-serif" }}>
               주체 없이도 프롬프트를 생성할 수 있습니다.
             </span>
           )}
 
           {promptValidationError ? (
-            <div style={{ marginTop: 6, color: "#ff9ab6", fontSize: 12, fontFamily: "sans-serif" }}>
+            <div style={{ marginTop: 6, color: UI.accents.error, fontSize: 12, fontFamily: "sans-serif" }}>
               {promptValidationError}
             </div>
           ) : null}
 
           {awkwardWords.length > 0 ? (
-            <div style={{ marginTop: 6, color: "#f7b267", fontSize: 12, fontFamily: "sans-serif" }}>
+            <div style={{ marginTop: 6, color: UI.accents.warning, fontSize: 12, fontFamily: "sans-serif" }}>
               어색할 수 있는 표현 감지: {awkwardWords.join(", ")}
             </div>
           ) : null}
 
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={handleToggleLibrary}
+          {upgradeNotice ? (
+            <div style={{ marginTop: 6, color: UI.text.main, fontSize: 11, fontFamily: "sans-serif" }}>
+              {upgradeNotice}
+            </div>
+          ) : null}
+
+          {canUpgradePrompt ? (
+            <div
               style={{
-                background: "transparent",
-                color: "#88a8b5",
-                border: "1px solid #2b3f48",
-                borderRadius: 8,
-                padding: "8px 10px",
-                cursor: "pointer",
+                marginTop: 8,
+                border: `1px solid ${UI.neutral.borderSoft}`,
+                borderRadius: 10,
+                padding: "7px 8px",
+                display: "grid",
+                gap: 4,
                 fontFamily: "sans-serif",
-                fontSize: 12,
-                fontWeight: 700,
-                whiteSpace: "nowrap",
               }}
             >
-              {isLibraryOpen ? "프리셋/히스토리 닫기" : "프리셋/히스토리"}
-            </button>
-          </div>
+              <div style={{ fontSize: 10, color: UI.text.muted }}>
+                원본 {isUpgradedPromptSelected ? "" : "(현재 적용)"}
+              </div>
+              <div style={{ fontSize: 11, color: UI.text.main, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {displayPrompt}
+              </div>
+              <div style={{ fontSize: 10, color: SEGMENT_COLORS.custom }}>
+                업그레이드 {isUpgradedPromptSelected ? "(현재 적용)" : ""}
+              </div>
+              <div style={{ fontSize: 11, color: UI.text.strong, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {upgradedDisplayPrompt}
+              </div>
+            </div>
+          ) : null}
         </div>
+
+        <button
+          type="button"
+          onClick={() => libraryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          style={{
+            background: "transparent",
+            color: UI.text.main,
+            border: `1px solid ${UI.neutral.borderSoft}`,
+            borderRadius: 10,
+            padding: "10px 12px",
+            cursor: "pointer",
+            fontFamily: "sans-serif",
+            fontSize: 12,
+            fontWeight: 700,
+            whiteSpace: "nowrap",
+          }}
+        >
+          프리셋/히스토리
+        </button>
 
         <button
           onClick={copyPrompt}
           disabled={!activeDisplayPrompt || Boolean(promptValidationError)}
           style={{
-            background: copied ? "#7bd389" : "#f19eb8",
-            color: copied ? "#0b2a14" : "#1a1a1a",
+            background: copied ? UI.accents.success : SHOT_ACCENT,
+            color: copied ? "#0b2a14" : "#071a2a",
             border: "none",
-            borderRadius: 8,
+            borderRadius: 10,
             padding: "10px 16px",
             cursor: !activeDisplayPrompt || promptValidationError ? "default" : "pointer",
             fontFamily: "'Arial Black','Helvetica Neue',sans-serif",
@@ -2445,22 +2106,22 @@ export default function InteractiveMode({ accessToken = "" }) {
         </button>
       </div>
 
-      {isLibraryOpen ? (
-        <div
-          ref={libraryRef}
-          style={{
-            background: "#0d0d0d",
-            borderTop: "1px solid #222",
-            padding: "10px 16px 14px",
-            display: "grid",
-            gap: 12,
-          }}
-        >
+      <div
+        ref={libraryRef}
+        style={{
+          background: UI.neutral.panel,
+          border: `1px solid ${UI.neutral.borderSoft}`,
+          borderRadius: 14,
+          padding: "14px 16px 16px",
+          display: "grid",
+          gap: 14,
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span
             style={{
               fontSize: 10,
-              color: "#7bdff2",
+              color: UI.text.main,
               fontFamily: "'Arial Black',sans-serif",
               letterSpacing: "0.14em",
             }}
@@ -2474,11 +2135,11 @@ export default function InteractiveMode({ accessToken = "" }) {
             placeholder="프리셋 이름"
             style={{
               width: isMobile ? "100%" : 180,
-              background: "#1a1a1a",
-              border: "1px solid #2e4154",
-              borderRadius: 6,
-              padding: "6px 8px",
-              color: "#e0ddd4",
+              background: UI.neutral.panelRaised,
+              border: `1px solid ${UI.neutral.borderStrong}`,
+              borderRadius: 10,
+              padding: "8px 8px",
+              color: UI.text.strong,
               fontSize: 12,
               fontFamily: "sans-serif",
             }}
@@ -2487,11 +2148,11 @@ export default function InteractiveMode({ accessToken = "" }) {
             type="button"
             onClick={saveCurrentPreset}
             style={{
-              background: "#7bdff2",
-              border: "none",
-              borderRadius: 6,
-              padding: "6px 10px",
-              color: "#111",
+              background: UI.neutral.panelRaised,
+              border: `1px solid ${UI.neutral.borderStrong}`,
+              borderRadius: 10,
+              padding: "8px 10px",
+              color: UI.text.strong,
               fontSize: 12,
               fontWeight: 800,
               fontFamily: "sans-serif",
@@ -2505,10 +2166,10 @@ export default function InteractiveMode({ accessToken = "" }) {
             onClick={handleResetAllPresets}
             style={{
               background: "transparent",
-              border: "1px solid #5f2f42",
-              borderRadius: 6,
-              padding: "6px 10px",
-              color: "#ff9ab6",
+              border: `1px solid ${withAlpha(UI.accents.error, 0.5)}`,
+              borderRadius: 10,
+              padding: "8px 10px",
+              color: UI.accents.error,
               fontSize: 12,
               fontWeight: 700,
               fontFamily: "sans-serif",
@@ -2528,10 +2189,10 @@ export default function InteractiveMode({ accessToken = "" }) {
                   display: "flex",
                   alignItems: "center",
                   gap: 4,
-                  border: "1px solid #2e4154",
+                  border: `1px solid ${UI.neutral.borderStrong}`,
                   borderRadius: 999,
-                  padding: "3px 6px",
-                  background: "#12161a",
+                  padding: "4px 8px",
+                  background: UI.neutral.panelRaised,
                 }}
               >
                 <button
@@ -2540,7 +2201,7 @@ export default function InteractiveMode({ accessToken = "" }) {
                   style={{
                     background: "transparent",
                     border: "none",
-                    color: "#c9ecf3",
+                    color: UI.text.strong,
                     fontSize: 11,
                     fontFamily: "sans-serif",
                     cursor: "pointer",
@@ -2554,7 +2215,7 @@ export default function InteractiveMode({ accessToken = "" }) {
                   style={{
                     background: "transparent",
                     border: "none",
-                    color: "#91a4af",
+                    color: UI.text.main,
                     fontSize: 10,
                     cursor: "pointer",
                     fontFamily: "sans-serif",
@@ -2568,7 +2229,7 @@ export default function InteractiveMode({ accessToken = "" }) {
                   style={{
                     background: "transparent",
                     border: "none",
-                    color: "#ff9ab6",
+                    color: UI.accents.error,
                     fontSize: 10,
                     cursor: "pointer",
                     fontFamily: "sans-serif",
@@ -2580,7 +2241,7 @@ export default function InteractiveMode({ accessToken = "" }) {
             ))}
           </div>
         ) : (
-          <div style={{ color: "#666", fontSize: 12, fontFamily: "sans-serif" }}>
+          <div style={{ color: UI.text.dim, fontSize: 12, fontFamily: "sans-serif" }}>
             저장된 프리셋이 없습니다.
           </div>
         )}
@@ -2589,7 +2250,7 @@ export default function InteractiveMode({ accessToken = "" }) {
           <span
             style={{
               fontSize: 10,
-              color: "#ffd166",
+              color: UI.text.main,
               fontFamily: "'Arial Black',sans-serif",
               letterSpacing: "0.14em",
             }}
@@ -2601,11 +2262,11 @@ export default function InteractiveMode({ accessToken = "" }) {
             onClick={saveCurrentPromptToHistory}
             disabled={!activeDisplayPrompt || Boolean(promptValidationError)}
             style={{
-              background: "#ffd166",
-              border: "none",
-              borderRadius: 6,
-              padding: "6px 10px",
-              color: "#1a1a1a",
+              background: UI.neutral.panelRaised,
+              border: `1px solid ${UI.neutral.borderStrong}`,
+              borderRadius: 10,
+              padding: "8px 10px",
+              color: UI.text.strong,
               fontSize: 12,
               fontWeight: 800,
               fontFamily: "sans-serif",
@@ -2626,10 +2287,10 @@ export default function InteractiveMode({ accessToken = "" }) {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  background: "#121212",
-                  border: "1px solid #2b2b2b",
-                  borderRadius: 8,
-                  padding: "6px 8px",
+                  background: UI.neutral.panelRaised,
+                  border: `1px solid ${UI.neutral.borderSoft}`,
+                  borderRadius: 10,
+                  padding: "7px 8px",
                 }}
               >
                 <button
@@ -2640,7 +2301,7 @@ export default function InteractiveMode({ accessToken = "" }) {
                     textAlign: "left",
                     background: "transparent",
                     border: "none",
-                    color: "#d8d8d8",
+                    color: UI.text.main,
                     fontSize: 12,
                     fontFamily: "monospace",
                     cursor: "pointer",
@@ -2652,7 +2313,7 @@ export default function InteractiveMode({ accessToken = "" }) {
                 >
                   {item.text}
                 </button>
-                <span style={{ color: "#666", fontSize: 10, fontFamily: "sans-serif" }}>
+                <span style={{ color: UI.text.dim, fontSize: 10, fontFamily: "sans-serif" }}>
                   {item.lang?.toUpperCase?.() || "EN"}
                 </span>
                 <button
@@ -2661,7 +2322,7 @@ export default function InteractiveMode({ accessToken = "" }) {
                   style={{
                     background: "transparent",
                     border: "none",
-                    color: "#ff9ab6",
+                    color: UI.accents.error,
                     fontSize: 10,
                     cursor: "pointer",
                     fontFamily: "sans-serif",
@@ -2673,12 +2334,11 @@ export default function InteractiveMode({ accessToken = "" }) {
             ))}
           </div>
         ) : (
-          <div style={{ color: "#666", fontSize: 12, fontFamily: "sans-serif" }}>
+          <div style={{ color: UI.text.dim, fontSize: 12, fontFamily: "sans-serif" }}>
             저장된 프롬프트 히스토리가 없습니다.
           </div>
         )}
-        </div>
-      ) : null}
+      </div>
       </div>
     </div>
   );

@@ -136,7 +136,7 @@ export function buildSubjectObject(THREE, type, scene) {
     add(new THREE.CylinderGeometry(0.12, 0.14, 0.18, 16), capDk, 0, 0.95, 0); // 펌프 바디
     add(new THREE.CylinderGeometry(0.025, 0.025, 0.55, 8),  pump,  0, 1.21, 0); // 스템
     // 펌프 헤드 (꺾인 노즐)
-    const head = add(new THREE.CylinderGeometry(0.06, 0.06, 0.10, 12), cap,  0.08, 1.45, 0);
+    add(new THREE.CylinderGeometry(0.06, 0.06, 0.10, 12), cap,  0.08, 1.45, 0);
     add(new THREE.CylinderGeometry(0.025, 0.025, 0.14, 8), pump, 0.14, 1.45, 0); // 노즐
   }
 
