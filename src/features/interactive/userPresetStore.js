@@ -1,5 +1,8 @@
 const USER_PRESET_KEY = "ck_user_presets_v2";
 const USER_PRESET_LIMIT = 20;
+const SUBJECT_POS_MIN = -1.8;
+const SUBJECT_POS_MAX = 1.8;
+let lastPresetWriteFailed = false;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -16,12 +19,22 @@ function safeParse(value, fallback) {
 
 function readRaw() {
   if (typeof window === "undefined") return [];
-  return safeParse(window.localStorage.getItem(USER_PRESET_KEY) || "[]", []);
+  try {
+    return safeParse(window.localStorage.getItem(USER_PRESET_KEY) || "[]", []);
+  } catch {
+    return [];
+  }
 }
 
 function writeRaw(items) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(USER_PRESET_KEY, JSON.stringify(items));
+  try {
+    window.localStorage.setItem(USER_PRESET_KEY, JSON.stringify(items));
+    lastPresetWriteFailed = false;
+  } catch {
+    // ignore storage write errors (private mode/quota exceeded)
+    lastPresetWriteFailed = true;
+  }
 }
 
 function asNumber(value, fallback, min, max) {
@@ -42,8 +55,8 @@ function sanitizePreset(input) {
     theta: asNumber(input.theta, 0, -180, 180),
     r: asNumber(input.r, 0.72, 0, 1),
     subjectPos: {
-      x: asNumber(input.subjectPos?.x, 0, -1, 1),
-      y: asNumber(input.subjectPos?.y, 0, -1, 1),
+      x: asNumber(input.subjectPos?.x, 0, SUBJECT_POS_MIN, SUBJECT_POS_MAX),
+      y: asNumber(input.subjectPos?.y, 0, SUBJECT_POS_MIN, SUBJECT_POS_MAX),
     },
     gazeVector: {
       x: asNumber(input.gazeVector?.x, 0, -1, 1),
@@ -88,3 +101,11 @@ export function removeUserPreset(id) {
   return next;
 }
 
+export function clearUserPresets() {
+  writeRaw([]);
+  return [];
+}
+
+export function didLastUserPresetWriteFail() {
+  return lastPresetWriteFailed;
+}

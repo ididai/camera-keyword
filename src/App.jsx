@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import LoginScreen from "./features/auth/LoginScreen";
 import {
   isSupabaseConfigured,
@@ -8,7 +8,12 @@ import {
 } from "./features/auth/supabaseClient";
 import { useSupabaseAuth } from "./features/auth/useSupabaseAuth";
 
-const InteractiveMode = lazy(() => import("./features/interactive/InteractiveMode"));
+const enableInteractiveDesignRefresh = import.meta.env.VITE_INTERACTIVE_DESIGN_REFRESH === "1";
+const InteractiveMode = lazy(
+  enableInteractiveDesignRefresh
+    ? () => import("./features/interactive/InteractiveModeDesign")
+    : () => import("./features/interactive/InteractiveMode"),
+);
 
 function MissingEnvNotice() {
   const hasMissingKeys = missingSupabaseEnvKeys.length > 0;
@@ -64,9 +69,21 @@ function MissingEnvNotice() {
 }
 
 export default function App() {
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1280,
+  );
   const [authLoadingAction, setAuthLoadingAction] = useState(false);
   const [authError, setAuthError] = useState("");
   const { session, loading, signInWithGoogle, signOut } = useSupabaseAuth();
+  const isCompactHeader = viewportWidth <= 860;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setViewportWidth(window.innerWidth);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const handleGoogleLogin = async () => {
     setAuthError("");
@@ -102,14 +119,23 @@ export default function App() {
       <header
         style={{
           borderBottom: "2px solid #222",
-          padding: "10px 28px 0",
+          padding: isCompactHeader ? "10px 12px 0" : "10px 28px 0",
           background: "#1a1a1a",
           position: "sticky",
           top: 0,
           zIndex: 50,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            marginBottom: 10,
+            flexWrap: isCompactHeader ? "wrap" : "nowrap",
+            rowGap: 8,
+          }}
+        >
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, letterSpacing: "-0.04em", display: "flex", alignItems: "baseline", gap: 6 }}>
             <span style={{ color: "#e0ddd4" }}>CAMERA</span>
             <span style={{ color: "#f19eb8" }}>KEYWORD</span>
@@ -117,6 +143,7 @@ export default function App() {
           </h1>
           <span
             style={{
+              display: isCompactHeader ? "none" : "inline",
               fontSize: 10,
               color: "#444",
               letterSpacing: "0.2em",
@@ -127,12 +154,22 @@ export default function App() {
             AI PROMPT GENERATOR
           </span>
 
-          <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div
+            style={{
+              marginLeft: isCompactHeader ? 0 : "auto",
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              flexWrap: "wrap",
+              width: isCompactHeader ? "100%" : "auto",
+              justifyContent: isCompactHeader ? "space-between" : "flex-end",
+            }}
+          >
+            <div style={{ display: isCompactHeader ? "none" : "flex", alignItems: "center", gap: 4 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: "#f19eb8" }} />
               <span style={{ fontSize: 11, color: "#aaa", fontFamily: "sans-serif" }}>샷</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={{ display: isCompactHeader ? "none" : "flex", alignItems: "center", gap: 4 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: "#2563eb" }} />
               <span style={{ fontSize: 11, color: "#aaa", fontFamily: "sans-serif" }}>높이</span>
             </div>
@@ -141,7 +178,7 @@ export default function App() {
                 <span
                   title={userEmail}
                   style={{
-                    maxWidth: 180,
+                    maxWidth: isCompactHeader ? 132 : 180,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -191,7 +228,7 @@ export default function App() {
             </div>
           }
         >
-          <InteractiveMode />
+          <InteractiveMode accessToken={session?.access_token || ""} />
         </Suspense>
       ) : null}
     </div>

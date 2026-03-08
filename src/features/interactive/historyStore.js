@@ -2,6 +2,7 @@ import { normalizePromptText } from "./promptNormalizer";
 
 const HISTORY_KEY = "ck_prompt_history_v2";
 const HISTORY_LIMIT = 30;
+let lastHistoryWriteFailed = false;
 
 function safeParse(value, fallback) {
   try {
@@ -14,12 +15,22 @@ function safeParse(value, fallback) {
 
 function readRaw() {
   if (typeof window === "undefined") return [];
-  return safeParse(window.localStorage.getItem(HISTORY_KEY) || "[]", []);
+  try {
+    return safeParse(window.localStorage.getItem(HISTORY_KEY) || "[]", []);
+  } catch {
+    return [];
+  }
 }
 
 function writeRaw(items) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+  try {
+    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+    lastHistoryWriteFailed = false;
+  } catch {
+    // ignore storage write errors (private mode/quota exceeded)
+    lastHistoryWriteFailed = true;
+  }
 }
 
 export function getPromptHistory() {
@@ -56,3 +67,6 @@ export function removePromptHistory(id) {
   return next;
 }
 
+export function didLastHistoryWriteFail() {
+  return lastHistoryWriteFailed;
+}
