@@ -130,6 +130,10 @@ export function normalizePromptText(value) {
   return unique.join(", ");
 }
 
+export function normalizeSentenceText(value) {
+  return normalizeToken(value);
+}
+
 export function hasKorean(value) {
   return /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(value || "");
 }
